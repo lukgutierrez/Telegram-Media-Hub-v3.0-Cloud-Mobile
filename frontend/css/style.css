@@ -1,0 +1,190 @@
+:root {
+    --bg-main: #050811;
+    --bg-card: #0B1224;
+    --bg-card-hover: #0F1A36;
+    --border-color: #1E293B;
+    --accent-green: #00FF41;
+    --accent-cyan: #00F0FF;
+    --accent-yellow: #FFE600;
+    --accent-red: #FF3366;
+    --text-primary: #F8FAFC;
+    --text-secondary: #94A3B8;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.mono {
+    font-family: 'Fira Code', 'Courier New', monospace;
+}
+
+.cyber-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    transition: all 0.2s ease;
+}
+
+.cyber-card:hover {
+    border-color: rgba(0, 240, 255, 0.4);
+}
+
+.cyber-btn-primary {
+    background: var(--accent-green);
+    color: #050505;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 12px 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+    cursor: pointer;
+    border: none;
+}
+
+.cyber-btn-primary:hover {
+    box-shadow: 0 0 25px rgba(0, 255, 65, 0.6);
+    transform: translateY(-2px);
+}
+
+.cyber-btn-cyan {
+    background: var(--accent-cyan);
+    color: #050505;
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 10px 20px;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+}
+
+.cyber-input {
+    background: #060B18;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 8px;
+    padding: 12px 16px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.2s ease;
+}
+
+.cyber-input:focus {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+}
+
+.progress-bar-glow {
+    height: 10px;
+    background: #1E293B;
+    border-radius: 9999px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #00FF41, #00F0FF);
+    box-shadow: 0 0 12px #00F0FF;
+    transition: width 0.3s ease;
+}
+
+.status-badge {
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.status-connected {
+    background: rgba(0, 255, 65, 0.15);
+    color: var(--accent-green);
+    border: 1px solid var(--accent-green);
+}
+
+.status-disconnected {
+    background: rgba(255, 51, 102, 0.15);
+    color: var(--accent-red);
+    border: 1px solid var(--accent-red);
+}
+
+.status-running {
+    background: rgba(0, 240, 255, 0.15);
+    color: var(--accent-cyan);
+    border: 1px solid var(--accent-cyan);
+}
+
+.status-paused {
+    background: rgba(255, 230, 0, 0.15);
+    color: var(--accent-yellow);
+    border: 1px solid var(--accent-yellow);
+}
+
+.blinking-cursor {
+    display: inline-block;
+    width: 8px;
+    height: 16px;
+    background-color: var(--accent-green);
+    margin-left: 4px;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 49% { opacity: 1; }
+    50%, 100% { opacity: 0; }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+::-webkit-scrollbar-track {
+    background: #050811;
+}
+::-webkit-scrollbar-thumb {
+    background: #1E293B;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #00F0FF;
+}
+
+.cyber-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.825rem;
+}
+.cyber-table th {
+    background: #080E1E;
+    color: #94A3B8;
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 600;
+    border-bottom: 1px solid #1E293B;
+}
+.cyber-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #141E33;
+    color: #E2E8F0;
+}
+.cyber-table tr:hover {
+    background: rgba(0, 240, 255, 0.03);
+}

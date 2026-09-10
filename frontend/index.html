@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Media Hub v3.0 | @lukgtz</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- QRCode.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-[#050811] text-slate-100 flex flex-col min-h-screen">
+
+    <!-- BARRA SUPERIOR / NAVBAR -->
+    <header class="border-b border-slate-800 bg-[#080E1E]/90 backdrop-blur sticky top-0 z-50 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-400 flex items-center justify-center text-cyan-400 font-bold text-xl shadow-[0_0_15px_rgba(0,240,255,0.3)]">
+                    <i class="fa-solid fa-cloud-bolt"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg tracking-tight text-white flex items-center gap-2">
+                        TELEGRAM MEDIA HUB <span class="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full border border-cyan-500/30">v3.0 Web</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 mono">by <span class="text-[#00FF41] font-semibold">@lukgtz</span> &bull; Salta, Arg</p>
+                </div>
+            </div>
+
+            <!-- User Auth Bar & APK Download -->
+            <div class="flex items-center gap-3">
+                <a href="/download-apk" download="TelegramMediaHub_v3.apk" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-[#00FF41] border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 transition shadow-[0_0_12px_rgba(0,255,65,0.2)]">
+                    <i class="fa-brands fa-android text-sm"></i>
+                    <span>App Android (.APK)</span>
+                </a>
+
+                <div id="nav-user-section" class="flex items-center gap-3 hidden">
+                    <button onclick="openQrSyncModal()" class="px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/40 text-xs font-bold flex items-center gap-1.5 transition shadow-[0_0_10px_rgba(0,240,255,0.2)]">
+                        <i class="fa-solid fa-qrcode"></i>
+                        <span class="hidden sm:inline">Vincular Celular</span>
+                    </button>
+                    <div class="hidden sm:flex flex-col text-right text-xs">
+                        <span id="nav-user-email" class="font-semibold text-slate-200">usuario@ejemplo.com</span>
+                        <span class="text-emerald-400 flex items-center justify-end gap-1"><i class="fa-solid fa-circle text-[8px]"></i> Online</span>
+                    </div>
+                    <button onclick="logout()" class="px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 text-xs font-semibold flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-right-from-bracket"></i> Salir
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- CONTENEDOR PRINCIPAL -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 flex flex-col gap-6">
+
+        <!-- SECCIÓN 1: VISTA DE AUTENTICACIÓN (LOGIN / REGISTRO) -->
+        <section id="view-auth" class="flex-1 flex items-center justify-center py-12">
+            <div class="cyber-card p-6 sm:p-8 w-full max-w-md border-cyan-500/30">
+                <div class="text-center mb-6">
+                    <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-400 mx-auto flex items-center justify-center text-cyan-400 text-3xl mb-3 shadow-[0_0_20px_rgba(0,240,255,0.3)]">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-white">Acceso a la Plataforma</h2>
+                    <p class="text-xs text-slate-400 mt-1">Conecta tu cuenta para gestionar descargas directas y Google Drive</p>
+                </div>
+
+                <div class="flex gap-2 mb-6 bg-slate-900/60 p-1 rounded-lg border border-slate-800">
+                    <button id="tab-btn-login" onclick="switchAuthTab('login')" class="flex-1 py-2 text-sm font-semibold rounded-md bg-cyan-500 text-slate-950 transition">Iniciar Sesión</button>
+                    <button id="tab-btn-register" onclick="switchAuthTab('register')" class="flex-1 py-2 text-sm font-semibold rounded-md text-slate-400 hover:text-white transition">Registrarse</button>
+                </div>
+
+                <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="flex flex-col gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Correo Electrónico</label>
+                        <input type="email" id="auth-email" required class="cyber-input text-sm" placeholder="tu@correo.com">
+                    </div>
+                    <div>
+                        <div class="flex justify-between items-center mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-300">Contraseña</label>
+                            <button type="button" onclick="openForgotModal()" id="link-forgot-pass" class="text-[11px] text-cyan-400 hover:underline">¿Olvidaste tu contraseña?</button>
+                        </div>
+                        <input type="password" id="auth-password" required class="cyber-input text-sm" placeholder="••••••••">
+                    </div>
+                    <div id="auth-error" class="text-xs text-red-400 bg-red-500/10 p-2.5 rounded border border-red-500/20 hidden"></div>
+                    <div id="auth-success" class="text-xs text-emerald-400 bg-emerald-500/10 p-2.5 rounded border border-emerald-500/20 hidden"></div>
+                    <button type="submit" id="auth-submit-btn" class="cyber-btn-primary w-full mt-2">
+                        <i class="fa-solid fa-arrow-right-to-bracket"></i> Iniciar Sesión
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- MODAL RECUPERAR CONTRASEÑA -->
+        <div id="modal-forgot" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+            <div class="cyber-card p-6 w-full max-w-md border-cyan-500/40 relative">
+                <button onclick="closeForgotModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyan-400/40 flex items-center justify-center text-cyan-400 text-xl">
+                        <i class="fa-solid fa-key"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-base text-white">Recuperar Contraseña</h3>
+                        <p class="text-xs text-slate-400">Asigna una nueva clave para tu cuenta</p>
+                    </div>
+                </div>
+
+                <form onsubmit="handleForgotSubmit(event)" class="flex flex-col gap-3.5">
+                    <div>
+                        <label class="block text-xs text-slate-300 mb-1">Correo Registrado</label>
+                        <input type="email" id="forgot-email" required class="cyber-input text-sm" placeholder="tu@correo.com">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-300 mb-1">Nueva Contraseña (mínimo 6 caracteres)</label>
+                        <input type="password" id="forgot-new-password" required minlength="6" class="cyber-input text-sm" placeholder="••••••••">
+                    </div>
+                    <div id="forgot-status" class="text-xs p-2.5 rounded hidden"></div>
+                    <div class="flex justify-end gap-2 mt-2">
+                        <button type="button" onclick="closeForgotModal()" class="px-4 py-2 text-xs font-semibold rounded bg-slate-800 text-slate-300 hover:bg-slate-700">Cancelar</button>
+                        <button type="submit" id="btn-save-new-pass" class="cyber-btn-primary px-4 py-2 text-xs font-bold">Guardar Nueva Clave</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- MODAL DE VINCULACIÓN APP MÓVIL POR QR / PIN -->
+        <div id="modal-qr-sync" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 hidden">
+            <div class="cyber-card p-6 w-full max-w-md border-cyan-400/50 relative text-center">
+                <button onclick="closeQrSyncModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+                
+                <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-400 mx-auto flex items-center justify-center text-cyan-400 text-2xl mb-3 shadow-[0_0_20px_rgba(0,240,255,0.35)]">
+                    <i class="fa-solid fa-mobile-screen-button"></i>
+                </div>
+                <h3 class="font-extrabold text-lg text-white">Vincular App Móvil</h3>
+                <p class="text-xs text-slate-400 mt-1">Inicia sesión al instante en tu celular sin escribir correo ni contraseña</p>
+
+                <!-- QR Code Box -->
+                <div class="my-5 flex flex-col items-center justify-center">
+                    <div class="p-3 bg-white rounded-2xl shadow-[0_0_25px_rgba(0,240,255,0.25)] border-2 border-cyan-400/80">
+                        <div id="qr-code-canvas" class="w-[180px] h-[180px] flex items-center justify-center"></div>
+                    </div>
+                </div>
+
+                <!-- PIN Code Box -->
+                <div class="bg-slate-950/80 p-3.5 rounded-xl border border-cyan-500/30 mb-4">
+                    <span class="text-[11px] text-slate-400 uppercase tracking-wider block mb-1">O ingresa este código PIN en la App:</span>
+                    <div class="flex items-center justify-center gap-3">
+                        <span id="qr-sync-pin" class="font-mono text-2xl font-black text-[#00FF41] tracking-widest">TMH-0000</span>
+                        <button onclick="copyPinCode()" class="text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded border border-cyan-500/30" title="Copiar código">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Timer & Actions -->
+                <div class="flex items-center justify-between text-xs text-slate-400 mb-2">
+                    <span id="qr-sync-timer" class="flex items-center gap-1.5 text-amber-400">
+                        <i class="fa-solid fa-clock"></i> Expira en: 05:00
+                    </span>
+                    <button onclick="generateNewQuickCode()" class="text-cyan-400 hover:underline flex items-center gap-1">
+                        <i class="fa-solid fa-rotate-right"></i> Generar nuevo
+                    </button>
+                </div>
+
+                <p class="text-[11px] text-slate-500">
+                    <i class="fa-solid fa-circle-check text-emerald-400"></i> Una vez vinculado, tu sesión quedará activa en tu celular de forma permanente.
+                </p>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 2: VISTA DEL DASHBOARD (LOGUEADO) -->
+        <section id="view-dashboard" class="flex flex-col gap-6 hidden">
+
+            <!-- Estado de Conexiones Rápidas (3 Tarjetas) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Tarjeta Telegram -->
+                <div class="cyber-card p-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3.5">
+                        <div class="w-11 h-11 rounded-xl bg-sky-500/10 border border-sky-400/40 flex items-center justify-center text-sky-400 text-2xl">
+                            <i class="fa-brands fa-telegram"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-white">Cuenta de Telegram</h3>
+                            <div id="status-badge-telegram" class="mt-0.5 inline-block status-badge status-disconnected">Desconectado</div>
+                        </div>
+                    </div>
+                    <button id="btn-tg-action" onclick="openTelegramModal()" class="px-3.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 text-xs font-bold transition">
+                        Conectar
+                    </button>
+                </div>
+
+                <!-- Tarjeta Google Drive -->
+                <div class="cyber-card p-4 flex items-center justify-between">
+                    <div class="flex items-center gap-3.5">
+                        <div class="w-11 h-11 rounded-xl bg-emerald-500/10 border border-emerald-400/40 flex items-center justify-center text-emerald-400 text-2xl">
+                            <i class="fa-brands fa-google-drive"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-white">Google Drive Cloud</h3>
+                            <div id="status-badge-drive" class="mt-0.5 inline-block status-badge status-disconnected">Desconectado</div>
+                        </div>
+                    </div>
+                    <button id="btn-drive-action" onclick="connectGoogleDrive()" class="px-3.5 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition">
+                        Conectar (Opcional)
+                    </button>
+                </div>
+
+                <!-- Tarjeta App Móvil (QR / PIN) -->
+                <div class="cyber-card p-4 flex items-center justify-between border-cyan-500/30 shadow-[0_0_15px_rgba(0,240,255,0.15)]">
+                    <div class="flex items-center gap-3.5">
+                        <div class="w-11 h-11 rounded-xl bg-cyan-500/10 border border-cyan-400/40 flex items-center justify-center text-cyan-400 text-2xl">
+                            <i class="fa-solid fa-qrcode"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-sm text-white">App Android</h3>
+                            <div class="mt-0.5 inline-block status-badge status-connected text-[10px]">Vinculación QR/PIN</div>
+                        </div>
+                    </div>
+                    <button onclick="openQrSyncModal()" class="px-3.5 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/40 text-xs font-bold transition shadow-[0_0_10px_rgba(0,240,255,0.2)]">
+                        ⚡ Vincular
+                    </button>
+                </div>
+            </div>
+
+            <!-- Pestañas del Panel de Control (5 Pestañas Tácticas) -->
+            <div class="flex gap-2 border-b border-slate-800 pb-2 overflow-x-auto">
+                <button onclick="switchTab('downloader')" id="tab-nav-downloader" class="px-4 py-2 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 font-bold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-bolt"></i> 🚀 Descargador Rápido
+                </button>
+                <button onclick="switchTab('forum')" id="tab-nav-forum" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white font-bold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-folder-tree"></i> 📂 Foros (Topics)
+                </button>
+                <button onclick="switchTab('jobs')" id="tab-nav-jobs" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white font-bold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-gauge-high"></i> 📊 Monitor & Descargas
+                </button>
+                <button onclick="switchTab('osint')" id="tab-nav-osint" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white font-bold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-user-secret"></i> 🕵️ Centro OSINT
+                </button>
+                <button onclick="switchTab('dedup')" id="tab-nav-dedup" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white font-bold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-fingerprint"></i> 🔐 Deduplicación SHA-256
+                </button>
+                <button onclick="switchTab('search')" id="tab-nav-search" class="px-4 py-2 rounded-lg text-slate-400 hover:text-white font-bold text-xs sm:text-sm flex items-center gap-2 whitespace-nowrap">
+                    <i class="fa-solid fa-magnifying-glass text-cyan-400"></i> 🔎 Buscador Global & ZIP
+                </button>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- PESTAÑA 1: DESCARGADOR RÁPIDO (SINGLE/BATCH) -->
+            <!-- ========================================== -->
+            <div id="tab-content-downloader" class="cyber-card p-6 flex flex-col gap-5">
+                <div>
+                    <h2 class="text-lg font-extrabold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-circle-down text-cyan-400"></i> Descargador Rápido y Extracción Masiva
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Descarga directa a tu celular/PC o sincroniza con Google Drive. Soporta links públicos, privados (<code class="text-cyan-300">t.me/c/...</code>) o IDs (<code class="text-cyan-300">-100...</code>).</p>
+                </div>
+
+                <div class="flex flex-col gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Enlace, Username o ID Numérico de Telegram</label>
+                        <input type="text" id="input-target-url" class="cyber-input font-mono text-sm" placeholder="https://t.me/canal/123  o  https://t.me/c/1234567/89  o  -1004340179079">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Destino de Almacenamiento</label>
+                            <select id="select-destination" class="cyber-input text-sm">
+                                <option value="DIRECT_DOWNLOAD" selected>💻 Descarga Directa (Celular / PC)</option>
+                                <option value="GDRIVE">☁️ Mi Google Drive (Automático por bloques)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Modo de Extracción</label>
+                            <select id="select-job-type" onchange="handleJobTypeChange()" class="cyber-input text-sm">
+                                <option value="SINGLE_MEDIA">⚡ Mensaje Único o Recientes (20)</option>
+                                <option value="BATCH_CHANNEL">📦 Lote de Canal (Batch)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5">Filtro Multimedia</label>
+                            <select id="select-media-filter" class="cyber-input text-sm">
+                                <option value="ALL">🌟 Todos los Archivos</option>
+                                <option value="PHOTO">📷 Solo Fotos</option>
+                                <option value="VIDEO">🎥 Solo Videos</option>
+                                <option value="DOCUMENT">📄 Solo Documentos</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Opciones avanzadas de Batch -->
+                    <div id="batch-options-box" class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-4 hidden">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1">Límite de Mensajes a Inspeccionar</label>
+                            <input type="number" id="input-batch-limit" value="100" min="1" max="1000" class="cyber-input text-sm">
+                        </div>
+                        <div class="flex items-center pt-5">
+                            <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300 font-semibold">
+                                <input type="checkbox" id="check-invert-order" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-400">
+                                <span>🎯 Invertir orden (del más antiguo al más reciente)</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Slider de Concurrencia -->
+                    <div class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 flex flex-col gap-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-semibold text-slate-300"><i class="fa-solid fa-sliders text-cyan-400"></i> Hilos de Descarga Simultánea (Concurrencia):</span>
+                            <span id="label-concurrency-val" class="font-mono font-bold text-[#00FF41] text-sm">10 hilos</span>
+                        </div>
+                        <input type="range" id="slider-concurrency" min="1" max="20" value="10" oninput="document.getElementById('label-concurrency-val').innerText = this.value + ' hilos'" class="w-full accent-cyan-400 cursor-pointer">
+                    </div>
+
+                    <button onclick="startDownloadJob()" class="cyber-btn-primary py-3.5 text-base mt-2">
+                        <i class="fa-solid fa-bolt"></i> INICIAR DESCARGA / EXTRACCIÓN
+                    </button>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- PESTAÑA 2: DESCARGADOR DE FOROS (TOPICS)   -->
+            <!-- ========================================== -->
+            <div id="tab-content-forum" class="cyber-card p-6 flex flex-col gap-5 hidden">
+                <div>
+                    <h2 class="text-lg font-extrabold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-folder-tree text-[#00FF41]"></i> Extractor de Foros (Topics) con Pre-Análisis
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Escanea los temas de cualquier grupo con formato Foro, pre-analiza archivos y peso total, y descarga con selección selectiva.</p>
+                </div>
+
+                <div class="flex flex-col gap-4">
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <input type="text" id="input-forum-target" class="cyber-input font-mono text-sm flex-1" placeholder="https://t.me/c/123456789  o  -1004340179079  o  @NombreGrupoForo">
+                        <button onclick="loadAndPreAnalyzeTopics()" id="btn-load-topics" class="cyber-btn-cyan text-sm whitespace-nowrap">
+                            <i class="fa-solid fa-magnifying-glass"></i> Cargar y Pre-Analizar Topics
+                        </button>
+                    </div>
+
+                    <div id="forum-loading-box" class="p-6 text-center text-cyan-400 hidden">
+                        <i class="fa-solid fa-circle-notch fa-spin text-2xl mb-2"></i>
+                        <p class="text-xs font-mono">Escaneando Topics y pre-analizando multimedia en Telegram...</p>
+                    </div>
+
+                    <!-- Contenedor del Pre-Análisis -->
+                    <div id="forum-preanalysis-container" class="flex flex-col gap-4 hidden">
+                        <!-- Tarjetas Resumen Neón -->
+                        <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+                            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                                <span class="text-[10px] text-slate-500 font-bold block uppercase">Topics</span>
+                                <span id="pre-tot-topics" class="text-base font-bold text-white font-mono">0</span>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                                <span class="text-[10px] text-slate-500 font-bold block uppercase">Fotos 📷</span>
+                                <span id="pre-tot-photos" class="text-base font-bold text-[#00F0FF] font-mono">0</span>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                                <span class="text-[10px] text-slate-500 font-bold block uppercase">Videos 🎥</span>
+                                <span id="pre-tot-videos" class="text-base font-bold text-[#00FF41] font-mono">0</span>
+                            </div>
+                            <div class="p-3 rounded-xl bg-slate-900 border border-slate-800">
+                                <span class="text-[10px] text-slate-500 font-bold block uppercase">Tamaño Total</span>
+                                <span id="pre-tot-mb" class="text-base font-bold text-[#FFE600] font-mono">0 MB</span>
+                            </div>
+                            <div class="col-span-2 sm:col-span-1 p-3 rounded-xl bg-slate-900 border border-slate-800">
+                                <span class="text-[10px] text-slate-500 font-bold block uppercase">ETA Est.</span>
+                                <span id="pre-tot-eta" class="text-xs font-bold text-slate-200 font-mono">--:--</span>
+                            </div>
+                        </div>
+
+                        <!-- Barra de Herramientas de Selección -->
+                        <div class="flex items-center justify-between flex-wrap gap-2 text-xs">
+                            <div class="flex items-center gap-2">
+                                <button onclick="toggleSelectAllTopics(true)" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 font-semibold border border-slate-700">
+                                    ☑️ Seleccionar Todos
+                                </button>
+                                <button onclick="toggleSelectAllTopics(false)" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-400 font-semibold border border-slate-700">
+                                    ◻️ Deseleccionar
+                                </button>
+                            </div>
+                            <span id="label-selected-topics-count" class="text-xs text-slate-400 font-mono">0 seleccionados</span>
+                        </div>
+
+                        <!-- Tabla Interactiva de Topics -->
+                        <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-80 overflow-y-auto">
+                            <table class="cyber-table">
+                                <thead>
+                                    <tr>
+                                        <th class="w-10 text-center"><input type="checkbox" id="check-all-topics" onchange="toggleSelectAllTopics(this.checked)"></th>
+                                        <th>ID</th>
+                                        <th>Título del Tema</th>
+                                        <th class="text-center">Fotos</th>
+                                        <th class="text-center">Videos</th>
+                                        <th class="text-center">Otros</th>
+                                        <th class="text-center">Total</th>
+                                        <th class="text-right">Peso (MB)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-topics-list">
+                                    <!-- Dynamic rows -->
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Opciones de Descarga de Foro -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Destino</label>
+                                <select id="forum-select-destination" class="cyber-input text-sm">
+                                    <option value="DIRECT_DOWNLOAD">💻 Descarga Directa (Celular / PC)</option>
+                                    <option value="GDRIVE">☁️ Mi Google Drive</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-300 mb-1">Filtro Multimedia</label>
+                                <select id="forum-select-filter" class="cyber-input text-sm">
+                                    <option value="ALL">🌟 Todos</option>
+                                    <option value="PHOTO">📷 Solo Fotos</option>
+                                    <option value="VIDEO">🎥 Solo Videos</option>
+                                </select>
+                            </div>
+                            <div class="flex items-center pt-5">
+                                <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300 font-semibold">
+                                    <input type="checkbox" id="forum-check-invert" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-cyan-500">
+                                    <span>🎯 Invertir orden</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Botones de Acción de Foros -->
+                        <div class="flex flex-col sm:flex-row gap-3 pt-2">
+                            <button onclick="startForumDownload(false)" class="cyber-btn-primary flex-1 py-3 text-sm">
+                                <i class="fa-solid fa-cloud-arrow-down"></i> DESCARGAR TOPICS SELECCIONADOS
+                            </button>
+                            <button onclick="startForumDownload(true)" class="cyber-btn-cyan flex-1 py-3 text-sm">
+                                <i class="fa-solid fa-bolt"></i> DESCARGAR TODOS LOS TOPICS
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- PESTAÑA 3: MONITOR & DESCARGAS DIRECTAS    -->
+            <!-- ========================================== -->
+            <div id="tab-content-jobs" class="cyber-card p-6 flex flex-col gap-5 hidden">
+                <div>
+                    <h2 class="text-lg font-extrabold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-gauge-high text-[#00FF41]"></i> Monitor en Tiempo Real & Descargas Directas
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Supervisión continua vía WebSocket. Guarda los archivos directamente en la memoria de tu celular o PC con un clic.</p>
+                </div>
+
+                <!-- Tarjeta de Progreso Activo -->
+                <div id="active-job-box" class="p-5 rounded-xl bg-slate-900/80 border border-cyan-500/40 flex flex-col gap-3.5 hidden">
+                    <div class="flex items-center justify-between">
+                        <span id="active-job-status" class="status-badge status-running">PROCESANDO</span>
+                        <div class="flex items-center gap-2">
+                            <button onclick="controlJobAction('PAUSE')" id="btn-job-pause" class="px-2.5 py-1 rounded bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 border border-yellow-500/30 text-xs font-bold transition">
+                                <i class="fa-solid fa-pause"></i> Pausar
+                            </button>
+                            <button onclick="controlJobAction('RESUME')" id="btn-job-resume" class="px-2.5 py-1 rounded bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold transition hidden">
+                                <i class="fa-solid fa-play"></i> Reanudar
+                            </button>
+                            <button onclick="controlJobAction('CANCEL')" id="btn-job-cancel" class="px-2.5 py-1 rounded bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/30 text-xs font-bold transition">
+                                <i class="fa-solid fa-stop"></i> Cancelar
+                            </button>
+                            <span id="active-job-pct" class="font-mono font-bold text-cyan-400 text-lg ml-2">0.0%</span>
+                        </div>
+                    </div>
+
+                    <div class="progress-bar-glow">
+                        <div id="active-job-bar" class="progress-bar-fill" style="width: 0%;"></div>
+                    </div>
+
+                    <div class="grid grid-cols-3 text-center gap-2 text-xs border-t border-slate-800 pt-2.5">
+                        <div>
+                            <span class="text-slate-500 block font-semibold">⚡ VELOCIDAD</span>
+                            <span id="active-job-speed" class="font-bold text-[#00FF41] font-mono text-sm">0.0 MB/s</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block font-semibold">⏱️ TIEMPO REST.</span>
+                            <span id="active-job-eta" class="font-bold text-[#FFE600] font-mono text-sm">--:--</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block font-semibold">📊 ARCHIVOS</span>
+                            <span id="active-job-files-count" class="font-bold text-[#00F0FF] font-mono text-sm">0 / 0</span>
+                        </div>
+                    </div>
+
+                    <div id="active-job-current-file" class="text-xs font-mono text-slate-300 truncate bg-slate-950 p-2.5 rounded border border-slate-800">
+                        📄 Esperando archivo...
+                    </div>
+                </div>
+
+                <!-- Archivos de la Tarea Activa / Seleccionada -->
+                <div id="job-files-section" class="flex flex-col gap-3">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-arrow-down"></i> Archivos Descargados de la Tarea (<span id="job-files-count-label">0</span>)
+                        </h3>
+                        <div class="flex items-center gap-2">
+                            <a id="btn-download-all-zip" href="#" class="px-3 py-1.5 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold inline-flex items-center gap-1.5 transition hidden">
+                                <i class="fa-solid fa-file-zipper text-sm"></i> 📦 Descargar Todo en ZIP Organizado (.zip)
+                            </a>
+                            <button onclick="refreshCurrentJobFiles()" class="text-xs text-slate-400 hover:text-white px-2.5 py-1.5 rounded bg-slate-800 border border-slate-700 inline-flex items-center gap-1"><i class="fa-solid fa-rotate"></i> Actualizar</button>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-72 overflow-y-auto">
+                        <table class="cyber-table">
+                            <thead>
+                                <tr>
+                                    <th>Archivo</th>
+                                    <th class="text-center">Peso</th>
+                                    <th>Hash SHA-256</th>
+                                    <th class="text-center">Estado</th>
+                                    <th class="text-right">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-job-files">
+                                <tr><td colspan="5" class="text-center text-slate-500 py-4">Inicia una descarga para ver los archivos disponibles aquí.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Historial de Tareas Anteriores -->
+                <div class="flex flex-col gap-3 pt-2">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400">Historial de Tareas Anteriores</h3>
+                    <div id="jobs-history-list" class="flex flex-col gap-2 max-h-60 overflow-y-auto">
+                        <p class="text-xs text-slate-500">Cargando historial...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- PESTAÑA 4: CENTRO OSINT COMPLETO          -->
+            <!-- ========================================== -->
+            <div id="tab-content-osint" class="cyber-card p-6 flex flex-col gap-5 hidden">
+                <div>
+                    <h2 class="text-lg font-extrabold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-shield-halved text-[#FFE600]"></i> Reconocimiento & Inteligencia OSINT Matrix
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Inspecciona grupos con IDs negativos (<code class="text-cyan-300">-100...</code>), analiza horarios pico de actividad y busca mensajes por palabra clave.</p>
+                </div>
+
+                <!-- Sub-pestañas OSINT -->
+                <div class="flex gap-2 border-b border-slate-800 pb-2 overflow-x-auto text-xs font-bold">
+                    <button onclick="switchOsintSubTab('chats')" id="subtab-osint-chats" class="px-3 py-1.5 rounded-md bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                        📋 Mis Grupos y Canales
+                    </button>
+                    <button onclick="switchOsintSubTab('info')" id="subtab-osint-info" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white">
+                        ℹ️ Inspección /info
+                    </button>
+                    <button onclick="switchOsintSubTab('stats')" id="subtab-osint-stats" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white">
+                        📊 Horas Pico & Stats
+                    </button>
+                    <button onclick="switchOsintSubTab('search')" id="subtab-osint-search" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white">
+                        🔍 Buscar Palabras Clave
+                    </button>
+                    <button onclick="switchOsintSubTab('recent')" id="subtab-osint-recent" class="px-3 py-1.5 rounded-md text-slate-400 hover:text-white">
+                        📜 Mensajes Recientes
+                    </button>
+                </div>
+
+                <!-- Sub-panel 1: Mis Grupos y Canales (Dialogs con -100...) -->
+                <div id="osint-subpanel-chats" class="flex flex-col gap-3">
+                    <div class="flex justify-between items-center">
+                        <p class="text-xs text-slate-400">Tus canales y supergrupos con sus IDs numéricos exactos para descargas directas:</p>
+                        <button onclick="loadMyChats()" class="cyber-btn-cyan text-xs py-1.5 px-3">
+                            <i class="fa-solid fa-rotate"></i> Cargar mis Grupos
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-80 overflow-y-auto">
+                        <table class="cyber-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre del Chat</th>
+                                    <th>ID Formateado</th>
+                                    <th>Tipo</th>
+                                    <th>Username</th>
+                                    <th>Miembros</th>
+                                    <th class="text-right">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-my-chats">
+                                <tr><td colspan="6" class="text-center text-slate-500 py-4">Haz clic en 'Cargar mis Grupos' para listar tus chats.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Sub-panel 2: Inspección Técnica (/info) -->
+                <div id="osint-subpanel-info" class="flex flex-col gap-3 hidden">
+                    <div class="flex gap-2">
+                        <input type="text" id="input-osint-info-target" class="cyber-input font-mono text-sm flex-1" placeholder="@usuario  o  https://t.me/canal  o  -100123456789">
+                        <button onclick="runOsintInspect()" class="cyber-btn-cyan text-sm">
+                            <i class="fa-solid fa-magnifying-glass"></i> Inspeccionar
+                        </button>
+                    </div>
+                    <div id="osint-info-output" class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs font-mono hidden"></div>
+                </div>
+
+                <!-- Sub-panel 3: Estadísticas & Horarios Pico (/stats) -->
+                <div id="osint-subpanel-stats" class="flex flex-col gap-3 hidden">
+                    <div class="flex gap-2">
+                        <input type="text" id="input-osint-stats-target" class="cyber-input font-mono text-sm flex-1" placeholder="Canal o Grupo (ID o link)">
+                        <button onclick="runOsintStats()" class="cyber-btn-primary text-sm">
+                            <i class="fa-solid fa-chart-line"></i> Analizar Stats
+                        </button>
+                    </div>
+                    <div id="osint-stats-output" class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs font-mono hidden"></div>
+                </div>
+
+                <!-- Sub-panel 4: Búsqueda por Palabras Clave -->
+                <div id="osint-subpanel-search" class="flex flex-col gap-3 hidden">
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input type="text" id="input-osint-search-target" class="cyber-input font-mono text-sm" placeholder="Canal o Grupo ID">
+                        <input type="text" id="input-osint-search-keyword" class="cyber-input text-sm" placeholder="Palabra clave (ej. video, link)">
+                        <button onclick="runOsintKeywordSearch()" class="cyber-btn-cyan text-sm">
+                            <i class="fa-solid fa-search"></i> Buscar Mensajes
+                        </button>
+                    </div>
+                    <div id="osint-search-output" class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs font-mono hidden"></div>
+                </div>
+
+                <!-- Sub-panel 5: Mensajes Recientes (/recent) -->
+                <div id="osint-subpanel-recent" class="flex flex-col gap-3 hidden">
+                    <div class="flex gap-2">
+                        <input type="text" id="input-osint-recent-target" class="cyber-input font-mono text-sm flex-1" placeholder="Canal o Grupo ID">
+                        <button onclick="runOsintRecent()" class="cyber-btn-primary text-sm">
+                            <i class="fa-solid fa-list"></i> Ver Últimos Mensajes
+                        </button>
+                    </div>
+                    <div id="osint-recent-output" class="p-4 rounded-xl bg-slate-900/60 border border-slate-800 text-xs font-mono hidden"></div>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- PESTAÑA 5: DEDUPLICACIÓN SHA-256          -->
+            <!-- ========================================== -->
+            <div id="tab-content-dedup" class="cyber-card p-6 flex flex-col gap-5 hidden">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-extrabold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-fingerprint text-cyan-400"></i> Motor de Deduplicación Criptográfica SHA-256
+                        </h2>
+                        <p class="text-xs text-slate-400 mt-1">Evita transferencias redundantes calculando hashes en bloques de 64KB.</p>
+                    </div>
+                    <button onclick="loadDedupStats()" class="cyber-btn-cyan text-xs py-1.5 px-3">
+                        <i class="fa-solid fa-rotate"></i> Actualizar
+                    </button>
+                </div>
+
+                <!-- Tarjetas de Ahorro -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                    <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                        <span class="text-xs text-slate-500 font-bold block uppercase">Archivos Únicos</span>
+                        <span id="dedup-stat-unique-files" class="text-xl font-bold text-white font-mono mt-1 block">0</span>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                        <span class="text-xs text-slate-500 font-bold block uppercase">Duplicados Omitidos</span>
+                        <span id="dedup-stat-skipped-files" class="text-xl font-bold text-[#00FF41] font-mono mt-1 block">0</span>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                        <span class="text-xs text-slate-500 font-bold block uppercase">Espacio Ahorrado</span>
+                        <span id="dedup-stat-saved-mb" class="text-xl font-bold text-[#FFE600] font-mono mt-1 block">0.0 MB</span>
+                    </div>
+                    <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                        <span class="text-xs text-slate-500 font-bold block uppercase">Eficiencia</span>
+                        <span id="dedup-stat-ratio" class="text-xl font-bold text-[#00F0FF] font-mono mt-1 block">0.0%</span>
+                    </div>
+                </div>
+
+                <div class="p-4 rounded-xl bg-slate-900/40 border border-slate-800/80 text-xs text-slate-400 flex flex-col gap-2">
+                    <h4 class="font-bold text-slate-200 flex items-center gap-1.5"><i class="fa-solid fa-microchip text-[#00FF41]"></i> Arquitectura de Doble Capa:</h4>
+                    <p>&bull; <strong>Capa Rápida (O(1)):</strong> Nombres deterministas basados en marca temporal y mensaje.</p>
+                    <p>&bull; <strong>Capa Criptográfica:</strong> Hashing en streaming de bloques de 64KB con almacenamiento en base de datos para omitir subidas redundantes.</p>
+                </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- PESTAÑA 6: BUSCADOR GLOBAL TELEGRAM & ZIP -->
+            <!-- ========================================== -->
+            <div id="tab-content-search" class="cyber-card p-6 flex flex-col gap-5 hidden">
+                <div>
+                    <h2 class="text-lg font-extrabold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass text-cyan-400"></i> Buscador Global en Vivo en Telegram & Extractor ZIP
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">Rastrea y encuentra cualquier término (ej: <code class="text-cyan-300">GOROSO</code>, <code class="text-cyan-300">Maca Escudero</code>, etc.) en <strong>todos tus canales, grupos y foros de Telegram simultáneamente</strong>. Descarga archivos individuales o empaqueta todos los videos y fotos en un único archivo ZIP organizado por carpetas de cada grupo.</p>
+                </div>
+
+                <!-- Barra de Búsqueda y Filtros -->
+                <div class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                    <div class="sm:col-span-6 relative">
+                        <input type="text" id="input-tg-global-search" onkeyup="if(event.key==='Enter') runTelegramGlobalSearch()" class="cyber-input text-sm pl-10 w-full" placeholder="Buscar en Telegram (ej: GOROSO, Maca Escudero)...">
+                        <i class="fa-solid fa-search absolute left-3.5 top-3 text-slate-500 text-sm"></i>
+                    </div>
+                    <div class="sm:col-span-3">
+                        <select id="select-tg-search-filter" onchange="runTelegramGlobalSearch()" class="cyber-input text-sm w-full">
+                            <option value="ALL" selected>🌟 Todos los Mensajes</option>
+                            <option value="MEDIA_ONLY">🎬 Solo con Multimedia</option>
+                            <option value="VIDEO">🎥 Solo Videos</option>
+                            <option value="PHOTO">📷 Solo Fotos</option>
+                            <option value="DOCUMENT">📄 Solo Documentos</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-3">
+                        <button id="btn-run-tg-search" onclick="runTelegramGlobalSearch()" class="cyber-btn-primary w-full text-sm flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-bolt"></i> Buscar en Telegram
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Estado de Carga / Animación Neón -->
+                <div id="tg-search-loading" class="p-6 rounded-xl bg-slate-900/60 border border-cyan-500/30 text-center flex flex-col items-center justify-center gap-3 hidden">
+                    <div class="w-10 h-10 border-4 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin"></div>
+                    <p class="text-xs text-cyan-300 font-mono">Buscando en vivo en todos tus canales y grupos de Telegram...</p>
+                </div>
+
+                <!-- Resumen y Botones de Descarga Masiva en ZIP -->
+                <div id="tg-search-summary-box" class="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-slate-900/80 border border-slate-800 hidden">
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center w-full sm:w-auto">
+                        <div class="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold block">Coincidencias</span>
+                            <span id="tg-search-stat-total" class="text-base font-bold text-white font-mono">0</span>
+                        </div>
+                        <div class="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold block">Videos 🎥</span>
+                            <span id="tg-search-stat-videos" class="text-base font-bold text-[#00FF41] font-mono">0</span>
+                        </div>
+                        <div class="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold block">Fotos 📷</span>
+                            <span id="tg-search-stat-photos" class="text-base font-bold text-[#00F0FF] font-mono">0</span>
+                        </div>
+                        <div class="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-800">
+                            <span class="text-[10px] text-slate-400 uppercase font-bold block">Peso Est.</span>
+                            <span id="tg-search-stat-mb" class="text-base font-bold text-[#FFE600] font-mono">0 MB</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+                        <button onclick="downloadSelectedTelegramSearchResultsZip()" id="btn-download-selected-tg-zip" class="px-3 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-check-double"></i> Descargar Seleccionados en ZIP
+                        </button>
+                        <button onclick="downloadAllTelegramSearchResultsZip()" id="btn-download-all-tg-zip" class="px-4 py-2 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs sm:text-sm font-bold flex items-center gap-2 transition shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                            <i class="fa-solid fa-file-zipper text-base"></i> 📦 Descargar Todo en ZIP Organizado
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Tabla de Resultados en Vivo -->
+                <div class="overflow-x-auto rounded-xl border border-slate-800 max-h-[480px] overflow-y-auto">
+                    <table class="cyber-table">
+                        <thead>
+                            <tr>
+                                <th class="w-10 text-center">
+                                    <input type="checkbox" id="check-all-tg-results" onchange="toggleSelectAllTgResults(this.checked)" class="w-4 h-4 rounded border-slate-700 bg-slate-900 text-cyan-500 focus:ring-cyan-400" checked>
+                                </th>
+                                <th>Grupo / Canal</th>
+                                <th>Mensaje / Coincidencia</th>
+                                <th>Remitente & Fecha</th>
+                                <th class="text-center">Multimedia</th>
+                                <th class="text-right">Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody-tg-search-results">
+                            <tr>
+                                <td colspan="6" class="text-center text-slate-500 py-8">
+                                    <div class="flex flex-col items-center gap-2">
+                                        <i class="fa-brands fa-telegram text-3xl text-slate-600"></i>
+                                        <span>Escribe arriba una palabra clave (ej: <code class="text-cyan-400">GOROSO</code>) y haz clic en <strong>Buscar en Telegram</strong> para rastrear en vivo todos tus chats.</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- MODAL DE ASISTENTE DE LOGIN TELEGRAM -->
+    <div id="modal-telegram" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="cyber-card p-6 max-w-md w-full border-sky-500/40">
+            <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+                <h3 class="font-bold text-white flex items-center gap-2">
+                    <i class="fa-brands fa-telegram text-sky-400"></i> Asistente de Conexión Telegram
+                </h3>
+                <button onclick="closeTelegramModal()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Paso 1: Pedir Teléfono -->
+            <div id="tg-step-phone" class="flex flex-col gap-3">
+                <p class="text-xs text-slate-300">Ingresa tu número de teléfono con código de país para recibir el código de verificación:</p>
+                <input type="text" id="tg-phone-input" class="cyber-input font-mono text-sm" placeholder="+5493875123456">
+                <button onclick="submitTelegramPhone()" id="btn-tg-send-code" class="cyber-btn-primary w-full mt-2">
+                    <i class="fa-solid fa-paper-plane"></i> Enviar Código de Verificación
+                </button>
+            </div>
+
+            <!-- Paso 2: Pedir Código -->
+            <div id="tg-step-code" class="flex flex-col gap-3 hidden">
+                <p class="text-xs text-slate-300">Ingresa el código que recibiste en tu app de Telegram o por SMS:</p>
+                <input type="text" id="tg-code-input" class="cyber-input font-mono text-sm tracking-widest text-center text-lg" placeholder="12345">
+                
+                <div id="tg-2fa-box" class="hidden">
+                    <label class="block text-xs font-semibold text-slate-300 mb-1 mt-2">Contraseña 2FA (Verificación en dos pasos)</label>
+                    <input type="password" id="tg-2fa-input" class="cyber-input text-sm" placeholder="••••••••">
+                </div>
+
+                <button onclick="submitTelegramCode()" id="btn-tg-verify-code" class="cyber-btn-primary w-full mt-2">
+                    <i class="fa-solid fa-check"></i> Confirmar e Iniciar Sesión
+                </button>
+            </div>
+
+            <div id="tg-modal-status" class="text-xs mt-3 text-center hidden"></div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-slate-800 py-4 text-center text-xs text-slate-500 mono">
+        TELEGRAM MEDIA HUB &bull; v3.0 &bull; <span class="text-[#00FF41]">CREADO POR @lukgtz</span> (Salta, Argentina)
+    </footer>
+
+    <!-- Custom JS -->
+    <script src="/static/js/app.js?v=3.2"></script>
+</body>
+</html>
+

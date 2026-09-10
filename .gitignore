@@ -1,0 +1,73 @@
+# ============================================================
+# Telegram Media Hub v3.0 (Cloud & Mobile) - .gitignore
+# Autor: @lukgtz (Luciano Gutiérrez - Salta, Argentina)
+# ============================================================
+
+# --- Sensitive Credentials & Sessions (NEVER COMMIT) ---
+*.session
+*.session-journal
+user_session.session
+bot_session.session
+gdrive_token.json
+gdrive_credentials.json
+client_secrets*.json
+token*.json
+credentials*.json
+*.key
+*.pem
+*.pfx
+
+# --- Environment Secrets ---
+.env
+.env.local
+.env.*.local
+*.env
+
+# --- Local Databases & Storage ---
+*.db
+*.sqlite
+*.sqlite3
+tmh_dev.db
+backend/tmh_dev.db
+backend/downloads_storage/
+backend/temp_storage/
+downloads_storage/
+temp_storage/
+
+# --- Compiled Packages & Archives ---
+*.apk
+*.aab
+*.tar.gz
+*.zip
+deploy_bundle.tar.gz
+clean_deploy.tar.gz
+TelegramMediaHub_v3.apk
+
+# --- Python Environment ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+venv/
+.venv/
+env/
+ENV/
+
+# --- Flutter / Dart Artifacts ---
+flutter_app/build/
+flutter_app/.dart_tool/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+flutter_app/.packages
+flutter_app/android/.gradle/
+.dart_tool/
+build/
+
+# --- OS & Editor Files ---
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
