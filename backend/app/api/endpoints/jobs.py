@@ -24,12 +24,14 @@ router = APIRouter()
 class CreateJobSchema(BaseModel):
     target_url: str
     destination: str = "DIRECT_DOWNLOAD" # GDRIVE o DIRECT_DOWNLOAD
-    job_type: str = "SINGLE_MEDIA" # SINGLE_MEDIA, BATCH_CHANNEL, FORUM_TOPICS
+    job_type: str = "SINGLE_MEDIA" # SINGLE_MEDIA, BATCH_CHANNEL, FORUM_TOPICS, BATCH_LINKS
     selected_topic_ids: Optional[List[int]] = None
+    topic_ids: Optional[List[int]] = None # Alias para compatibilidad Flutter/Web
     concurrency: int = 10
     invert_order: bool = False
     limit_messages: Optional[int] = None
     media_filter: str = "ALL" # ALL, PHOTO, VIDEO, DOCUMENT
+    filter_media: Optional[str] = None # Alias para compatibilidad Flutter
 
 class JobActionSchema(BaseModel):
     action: str # PAUSE, RESUME, CANCEL
@@ -56,22 +58,34 @@ async def create_job(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    if not payload.target_url.strip():
+    clean_target = payload.target_url.strip()
+    if not clean_target:
         raise HTTPException(status_code=400, detail="Debes ingresar un enlace o ID de Telegram válido.")
 
+    effective_topic_ids = payload.selected_topic_ids or payload.topic_ids
+    effective_media_filter = payload.media_filter or payload.filter_media or "ALL"
+    if payload.filter_media and not payload.media_filter:
+        effective_media_filter = payload.filter_media
+
+    # Auto-detección de Lote de Enlaces Múltiples si se pegaron varias URLs
+    effective_job_type = payload.job_type
+    if effective_job_type in ["SINGLE_MEDIA", "SINGLE_LINK"]:
+        if "\n" in clean_target or "," in clean_target or clean_target.count("t.me/") > 1:
+            effective_job_type = "BATCH_LINKS"
+
     params_dict = {
-        "selected_topic_ids": payload.selected_topic_ids,
+        "selected_topic_ids": effective_topic_ids,
         "concurrency": payload.concurrency,
         "invert_order": payload.invert_order,
         "limit_messages": payload.limit_messages,
-        "media_filter": payload.media_filter
+        "media_filter": effective_media_filter
     }
 
     job = Job(
         user_id=user.id,
-        target_url=payload.target_url.strip(),
+        target_url=clean_target,
         destination=payload.destination,
-        job_type=payload.job_type,
+        job_type=effective_job_type,
         params_json=json.dumps(params_dict),
         status=JobStatus.PENDING,
         progress_percent=0.0

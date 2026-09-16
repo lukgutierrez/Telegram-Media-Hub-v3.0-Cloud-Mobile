@@ -285,7 +285,9 @@ class ApiService extends ChangeNotifier {
           'job_type': jobType,
           'concurrency': concurrency,
           'destination': destination,
+          'media_filter': filterMedia ?? 'ALL',
           'filter_media': filterMedia,
+          'selected_topic_ids': topicIds,
           'topic_ids': topicIds,
         }),
       );

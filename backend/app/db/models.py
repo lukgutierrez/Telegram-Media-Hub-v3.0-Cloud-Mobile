@@ -18,6 +18,7 @@ class JobStatus(str, enum.Enum):
 class JobType(str, enum.Enum):
     SINGLE_MEDIA = "SINGLE_MEDIA"
     BATCH_CHANNEL = "BATCH_CHANNEL"
+    BATCH_LINKS = "BATCH_LINKS"
     FORUM_TOPICS = "FORUM_TOPICS"
     OSINT_RECON = "OSINT_RECON"
 
@@ -73,7 +74,7 @@ class Job(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     job_type = Column(String(50), default=JobType.SINGLE_MEDIA)
-    target_url = Column(String(500), nullable=False)
+    target_url = Column(Text, nullable=False)
     destination = Column(String(50), default="DIRECT_DOWNLOAD") # GDRIVE o DIRECT_DOWNLOAD
     params_json = Column(Text, nullable=True) # Almacena topics seleccionados, concurrencia, etc.
     

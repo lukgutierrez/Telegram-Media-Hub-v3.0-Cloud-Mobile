@@ -21,12 +21,28 @@ class _QuickDownloadScreenState extends State<QuickDownloadScreen> {
   bool _isAnalyzingTopics = false;
   List<TopicModel> _topics = [];
   bool _isStarting = false;
+  int _linkCount = 0;
 
   @override
   void initState() {
     super.initState();
     if (widget.initialTarget != null && widget.initialTarget!.isNotEmpty) {
       _urlController.text = widget.initialTarget!;
+      _updateLinkCount(widget.initialTarget!);
+    }
+    _urlController.addListener(() {
+      _updateLinkCount(_urlController.text);
+    });
+  }
+
+  void _updateLinkCount(String text) {
+    if (text.trim().isEmpty) {
+      if (_linkCount != 0) setState(() => _linkCount = 0);
+      return;
+    }
+    final tokens = text.split(RegExp(r'[\r\n,;]+')).map((t) => t.trim()).where((t) => t.isNotEmpty).toList();
+    if (_linkCount != tokens.length) {
+      setState(() => _linkCount = tokens.length);
     }
   }
 
@@ -35,6 +51,7 @@ class _QuickDownloadScreenState extends State<QuickDownloadScreen> {
     super.didUpdateWidget(oldWidget);
     if (widget.initialTarget != null && widget.initialTarget != oldWidget.initialTarget) {
       _urlController.text = widget.initialTarget!;
+      _updateLinkCount(widget.initialTarget!);
     }
   }
 
@@ -94,10 +111,10 @@ class _QuickDownloadScreenState extends State<QuickDownloadScreen> {
     List<int>? selectedTopicIds;
     String jobType = 'SINGLE_LINK';
 
-    if (_topics.isNotEmpty) {
+    if (_topics.isNotEmpty && _topics.any((t) => t.isSelected)) {
       selectedTopicIds = _topics.where((t) => t.isSelected).map((t) => t.id).toList();
       jobType = 'FORUM_TOPICS';
-    } else if (target.contains('\n') || target.contains(',')) {
+    } else if (_linkCount > 1 || target.contains('\n') || target.contains(',') || target.contains(';')) {
       jobType = 'BATCH_LINKS';
     } else {
       final clean = target.split('?')[0].trim();
@@ -125,7 +142,7 @@ class _QuickDownloadScreenState extends State<QuickDownloadScreen> {
 
       if (jobId != null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Tarea #$jobId iniciada exitosamente')),
+          SnackBar(content: Text('Tarea #$jobId iniciada exitosamente ($jobType)')),
         );
         if (widget.onJobStarted != null) {
           widget.onJobStarted!(jobId);
@@ -155,32 +172,64 @@ class _QuickDownloadScreenState extends State<QuickDownloadScreen> {
                   children: const [
                     Icon(Icons.bolt, color: CyberTheme.neonGreen, size: 28),
                     SizedBox(width: 10),
-                    Text(
-                      'TURBO DESCARGAS & EXTRACTOR DE TOPICS',
-                      style: TextStyle(
-                        color: CyberTheme.neonGreen,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.1,
+                    Expanded(
+                      child: Text(
+                        'TURBO DESCARGAS & EXTRACTOR DE TOPICS',
+                        style: TextStyle(
+                          color: CyberTheme.neonGreen,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1.1,
+                        ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Descarga a máxima velocidad usando conexiones paralelas MTProto y sanitización automática.',
+                  'Descarga 1 o múltiples enlaces (10, 20, 50+), canales o foros enteros a máxima velocidad.',
                   style: TextStyle(color: CyberTheme.textMuted, fontSize: 12),
                 ),
                 const SizedBox(height: 16),
 
+                if (_linkCount > 1) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: CyberTheme.neonCyan.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: CyberTheme.neonCyan.withOpacity(0.4)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.playlist_add_check, color: CyberTheme.neonCyan, size: 16),
+                        const SizedBox(width: 6),
+                        Text(
+                          '🔗 $_linkCount enlaces detectados (Modo Lote Multi-Link)',
+                          style: const TextStyle(
+                            color: CyberTheme.neonCyan,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 TextField(
                   controller: _urlController,
-                  maxLines: 2,
-                  style: const TextStyle(fontSize: 13),
+                  minLines: 3,
+                  maxLines: 7,
+                  style: const TextStyle(fontSize: 13, fontFamily: 'monospace'),
                   decoration: const InputDecoration(
-                    labelText: 'Enlace de Telegram (Mensaje, Canal, Grupo o Foro)',
-                    hintText: 'https://t.me/canal/1234 o https://t.me/c/123456789/10/20',
+                    labelText: 'Enlace(s) de Telegram (1 o varios, 1 por línea)',
+                    hintText: 'https://t.me/c/12345/678\nhttps://t.me/c/12345/679\nhttps://t.me/canal/123',
                     prefixIcon: Icon(Icons.link, color: CyberTheme.neonCyan, size: 20),
+                    alignLabelWithHint: true,
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -190,7 +239,7 @@ class _QuickDownloadScreenState extends State<QuickDownloadScreen> {
                   children: [
                     const Text('Conexiones Paralelas Turbo:', style: TextStyle(color: Colors.white70, fontSize: 13)),
                     Text(
-                      ' hilos concurrentes ⚡',
+                      '${_concurrency.toInt()} hilos concurrentes ⚡',
                       style: const TextStyle(color: CyberTheme.neonYellow, fontWeight: FontWeight.bold, fontFamily: 'monospace'),
                     ),
                   ],

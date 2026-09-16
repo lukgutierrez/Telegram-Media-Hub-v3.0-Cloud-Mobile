@@ -23,6 +23,10 @@ from telethon.errors import (
 from app.core.config import settings
 from app.core.crypto import encrypt_secret, decrypt_secret
 
+VIDEO_EXTENSIONS = {'.mp4', '.mkv', '.mov', '.avi', '.webm', '.flv', '.wmv', '.3gp', '.m4v', '.ts', '.mpg', '.mpeg', '.m2ts', '.vob', '.ogv'}
+PHOTO_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.heic', '.heif', '.tiff', '.tif', '.svg', '.ico', '.psd'}
+AUDIO_EXTENSIONS = {'.mp3', '.ogg', '.wav', '.flac', '.m4a', '.aac', '.opus', '.wma', '.alac', '.aiff'}
+
 _pending_login_clients: Dict[str, TelegramClient] = {}
 
 class ParsedTelegramLink:
@@ -31,6 +35,72 @@ class ParsedTelegramLink:
         self.channel_ref = channel_ref
         self.msg_id = msg_id
         self.topic_id = topic_id
+
+    def __repr__(self):
+        return f"<ParsedTelegramLink type={self.link_type} ref={self.channel_ref} msg={self.msg_id} topic={self.topic_id}>"
+
+def get_message_media_type(msg) -> str:
+    """Clasificador universal y exhaustivo de tipos de archivo multimedia en Telegram."""
+    if not msg or not getattr(msg, 'media', None):
+        return "TEXT"
+    
+    # 1. Fotos nativas
+    if getattr(msg, 'photo', None) or isinstance(getattr(msg, 'media', None), MessageMediaPhoto):
+        return "PHOTO"
+    
+    # 2. Videos nativos
+    if getattr(msg, 'video', None):
+        return "VIDEO"
+        
+    doc = getattr(getattr(msg, 'media', None), 'document', getattr(msg, 'document', None))
+    if doc:
+        attrs = getattr(doc, 'attributes', []) or []
+        for a in attrs:
+            if isinstance(a, DocumentAttributeVideo):
+                return "VIDEO"
+            if isinstance(a, DocumentAttributeAudio):
+                return "AUDIO"
+        
+        # MIME Type check
+        mime = (getattr(doc, 'mime_type', '') or '').lower()
+        if mime.startswith('video/'):
+            return "VIDEO"
+        if mime.startswith('image/'):
+            return "PHOTO"
+        if mime.startswith('audio/'):
+            return "AUDIO"
+            
+    # 3. File attributes and filename extension fallback
+    fname = ""
+    f_obj = getattr(msg, 'file', None)
+    if f_obj and getattr(f_obj, 'name', None):
+        fname = f_obj.name
+    elif doc and getattr(doc, 'attributes', None):
+        for a in doc.attributes:
+            if hasattr(a, 'file_name') and a.file_name:
+                fname = a.file_name
+                break
+                
+    if fname:
+        ext = os.path.splitext(fname)[1].lower()
+        if ext in VIDEO_EXTENSIONS:
+            return "VIDEO"
+        if ext in PHOTO_EXTENSIONS:
+            return "PHOTO"
+        if ext in AUDIO_EXTENSIONS:
+            return "AUDIO"
+            
+    # File mime fallback
+    if f_obj and getattr(f_obj, 'mime_type', None):
+        mime = f_obj.mime_type.lower()
+        if mime.startswith('video/'):
+            return "VIDEO"
+        if mime.startswith('image/'):
+            return "PHOTO"
+        if mime.startswith('audio/'):
+            return "AUDIO"
+
+    return "DOCUMENT"
 
 def parse_telegram_link(target: str) -> ParsedTelegramLink:
     target = target.strip()
@@ -59,6 +129,45 @@ def parse_telegram_link(target: str) -> ParsedTelegramLink:
         
     clean_username = target.lstrip("@").split("/")[0]
     return ParsedTelegramLink("USERNAME", clean_username)
+
+def parse_multiple_telegram_links(text: str) -> List[ParsedTelegramLink]:
+    """Extrae y parsea todos los enlaces y referencias de Telegram presentes en un texto multilinea o separado."""
+    if not text:
+        return []
+        
+    raw_lines = re.split(r'[\r\n,;]+', text)
+    links: List[ParsedTelegramLink] = []
+    seen_keys = set()
+    
+    for raw in raw_lines:
+        line = raw.strip()
+        if not line:
+            continue
+            
+        tokens = line.split()
+        for token in tokens:
+            tok = token.strip().strip("<>\"'(),;")
+            if not tok:
+                continue
+                
+            if "t.me/" in tok or tok.startswith("@") or tok.lstrip("-").isdigit():
+                parsed = parse_telegram_link(tok)
+                key = (parsed.link_type, parsed.channel_ref, parsed.msg_id, parsed.topic_id)
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    links.append(parsed)
+            elif len(tok) >= 3 and not tok.startswith("http"):
+                parsed = parse_telegram_link(tok)
+                key = (parsed.link_type, parsed.channel_ref, parsed.msg_id, parsed.topic_id)
+                if key not in seen_keys:
+                    seen_keys.add(key)
+                    links.append(parsed)
+                    
+    if not links and text.strip():
+        parsed = parse_telegram_link(text.strip())
+        links.append(parsed)
+        
+    return links
 
 
 async def send_telegram_login_code(phone: str) -> Tuple[bool, str, Optional[str]]:
@@ -296,28 +405,51 @@ async def fast_download_media(client: TelegramClient, message, out_path: str, pr
     return out_path
 
 
-async def pre_analyze_topics_service(client: TelegramClient, entity, topics_ids: Optional[List[int]] = None, concurrency: int = 10) -> Dict[str, Any]:
-    """Carga instantánea de la estructura de Topics de un foro (0.3s) con metadatos."""
-    all_topics = []
-    try:
-        res = await client(GetForumTopicsRequest(
-            peer=entity, offset_date=None, offset_id=0, offset_topic=0, limit=300
-        ))
-        all_topics = list(res.topics)
-    except Exception:
-        all_topics = []
+async def fetch_all_forum_topics(client: TelegramClient, entity, max_topics: int = 500) -> List[Any]:
+    """Obtiene todos los topics de un supergrupo Foro paginando adecuadamente."""
+    topics = []
+    offset_date = None
+    offset_id = 0
+    offset_topic = 0
+    while len(topics) < max_topics:
+        try:
+            res = await client(GetForumTopicsRequest(
+                peer=entity,
+                offset_date=offset_date,
+                offset_id=offset_id,
+                offset_topic=offset_topic,
+                limit=100
+            ))
+            if not res or not res.topics:
+                break
+            batch = list(res.topics)
+            topics.extend(batch)
+            if len(batch) < 100:
+                break
+            last_t = batch[-1]
+            offset_date = getattr(last_t, 'date', None)
+            offset_id = getattr(last_t, 'top_message', 0)
+            offset_topic = getattr(last_t, 'id', 0)
+        except Exception:
+            break
+    return topics
 
-    # Fallback si no es un foro o no tiene topics
+async def pre_analyze_topics_service(client: TelegramClient, entity, topics_ids: Optional[List[int]] = None, concurrency: int = 10) -> Dict[str, Any]:
+    """Carga completa y precisa de la estructura de Topics de un foro con metadatos y clasificación universal."""
+    all_topics = await fetch_all_forum_topics(client, entity, max_topics=500)
+
+    # Fallback si no es un foro o no tiene topics (canal / grupo tradicional)
     if not all_topics:
         photos, videos, others, bytes_t = 0, 0, 0, 0
         try:
-            async for msg in client.iter_messages(entity, limit=50):
+            async for msg in client.iter_messages(entity, limit=80):
                 if not msg.media:
                     continue
                 sz = getattr(msg.file, "size", 0) or 0
                 bytes_t += sz
-                if msg.photo: photos += 1
-                elif msg.video: videos += 1
+                m_type = get_message_media_type(msg)
+                if m_type == "PHOTO": photos += 1
+                elif m_type == "VIDEO": videos += 1
                 else: others += 1
         except Exception:
             pass
@@ -396,19 +528,15 @@ async def osint_stats_channel(client: TelegramClient, channel) -> Dict[str, Any]
         total_msg += 1
         if message.media:
             total_con_media += 1
-            if isinstance(message.media, MessageMediaPhoto):
+            m_type = get_message_media_type(message)
+            if m_type == "PHOTO":
                 counter_tipos["Fotos"] += 1
-            elif isinstance(message.media, MessageMediaDocument):
-                doc = message.media.document
-                if doc:
-                    has_vid = any(isinstance(a, DocumentAttributeVideo) for a in doc.attributes)
-                    has_aud = any(isinstance(a, DocumentAttributeAudio) for a in doc.attributes)
-                    if has_vid:
-                        counter_tipos["Videos"] += 1
-                    elif has_aud:
-                        counter_tipos["Audio"] += 1
-                    else:
-                        counter_tipos["Documentos"] += 1
+            elif m_type == "VIDEO":
+                counter_tipos["Videos"] += 1
+            elif m_type == "AUDIO":
+                counter_tipos["Audio"] += 1
+            else:
+                counter_tipos["Documentos"] += 1
 
         if message.sender_id:
             try:
@@ -457,10 +585,13 @@ async def osint_recent_messages(client: TelegramClient, channel, limit: int = 15
     msgs = []
     async for msg in client.iter_messages(channel, limit=limit):
         m_type = "Texto"
-        if msg.photo:
+        m_calc = get_message_media_type(msg)
+        if m_calc == "PHOTO":
             m_type = "Foto 📷"
-        elif msg.video:
+        elif m_calc == "VIDEO":
             m_type = "Video 🎥"
+        elif m_calc == "AUDIO":
+            m_type = "Audio 🎵"
         elif msg.media:
             m_type = "Documento 📄"
 
@@ -484,7 +615,7 @@ async def search_global_telegram_messages(
     q_clean = query.strip()
     q_words = [w.upper() for w in q_clean.split() if len(w) > 1]
 
-    # --- 1. BÚSQUEDA GLOBAL DE MENSAJES DIRECTA (ULTRA RÁPIDA) ---
+    # 1. BÚSQUEDA GLOBAL DE MENSAJES DIRECTA
     try:
         async for msg in client.iter_messages(None, search=query, limit=limit):
             cid = msg.chat_id
@@ -498,9 +629,10 @@ async def search_global_telegram_messages(
 
             key = (cid, msg.id)
             if key not in found_map:
-                is_video = bool(msg.video or (getattr(msg, 'file', None) and getattr(msg.file, 'mime_type', '').startswith('video/')))
-                is_photo = bool(msg.photo or (getattr(msg, 'file', None) and getattr(msg.file, 'mime_type', '').startswith('image/')))
-                is_doc = bool(msg.media and not is_video and not is_photo)
+                m_type = get_message_media_type(msg)
+                is_video = (m_type == "VIDEO")
+                is_photo = (m_type == "PHOTO")
+                is_doc = (m_type == "DOCUMENT")
 
                 fn = msg.file.name if getattr(msg, 'file', None) and msg.file.name else (f"video_{msg.id}.mp4" if is_video else (f"photo_{msg.id}.jpg" if is_photo else f"msg_{msg.id}"))
                 sz = round(msg.file.size / (1024*1024), 2) if getattr(msg, 'file', None) and msg.file.size else 0
@@ -521,135 +653,7 @@ async def search_global_telegram_messages(
                     "date": msg.date.strftime("%Y-%m-%d %H:%M") if msg.date else "N/A",
                     "text": (msg.text or "[Archivo Multimedia]").replace("\n", " ")[:80],
                     "has_media": bool(msg.media),
-                    "media_type": "VIDEO" if is_video else ("PHOTO" if is_photo else ("DOCUMENT" if is_doc else "TEXT")),
-                    "filename": fn,
-                    "size_mb": sz,
-                    "size_bytes": sz_bytes,
-                    "origin": "DIRECT_MATCH"
-                }
-
-            # Si es parte de un álbum (pack de fotos/videos), extraer los demás archivos del álbum
-            if msg.grouped_id:
-                try:
-                    async for album_msg in client.iter_messages(cid, min_id=max(1, msg.id - 8), max_id=msg.id + 8):
-                        if album_msg.grouped_id == msg.grouped_id:
-                            a_key = (cid, album_msg.id)
-                            if a_key not in found_map:
-                                a_is_video = bool(album_msg.video or (getattr(album_msg, 'file', None) and getattr(album_msg.file, 'mime_type', '').startswith('video/')))
-                                a_is_photo = bool(album_msg.photo or (getattr(album_msg, 'file', None) and getattr(album_msg.file, 'mime_type', '').startswith('image/')))
-                                a_is_doc = bool(album_msg.media and not a_is_video and not a_is_photo)
-
-                                a_fn = album_msg.file.name if getattr(album_msg, 'file', None) and album_msg.file.name else (f"video_{album_msg.id}.mp4" if a_is_video else (f"photo_{album_msg.id}.jpg" if a_is_photo else f"msg_{album_msg.id}"))
-                                a_sz = round(album_msg.file.size / (1024*1024), 2) if getattr(album_msg, 'file', None) and album_msg.file.size else 0
-                                a_sz_bytes = album_msg.file.size if getattr(album_msg, 'file', None) and album_msg.file.size else 0
-
-                                found_map[a_key] = {
-                                    "msg_id": album_msg.id,
-                                    "chat_id": cid,
-                                    "chat_title": cname,
-                                    "sender_name": "Álbum Multimedia",
-                                    "date": album_msg.date.strftime("%Y-%m-%d %H:%M") if album_msg.date else "N/A",
-                                    "text": f"[Álbum: {query}] {album_msg.text or ''}".replace("\n", " ")[:80],
-                                    "has_media": bool(album_msg.media),
-                                    "media_type": "VIDEO" if a_is_video else ("PHOTO" if a_is_photo else ("DOCUMENT" if a_is_doc else "TEXT")),
-                                    "filename": a_fn,
-                                    "size_mb": a_sz,
-                                    "size_bytes": a_sz_bytes,
-                                    "origin": "ALBUM_PACK"
-                                }
-                except Exception:
-                    pass
-    except Exception:
-        pass
-
-    # --- 2. RASTREO COMPLEMENTARIO EN TÍTULOS DE FOROS DE TOPICS ---
-    try:
-        dialogs = await client.get_dialogs(limit=30)
-        forum_dialogs = [d for d in dialogs if d.is_channel and getattr(d.entity, 'forum', False)]
-
-        for dialog in forum_dialogs[:5]:
-            try:
-                res_topics = await client(GetForumTopicsRequest(
-                    peer=dialog.entity, offset_date=None, offset_id=0, offset_topic=0, limit=50
-                ))
-                if res_topics and res_topics.topics:
-                    for t in res_topics.topics:
-                        t_title = t.title or ""
-                        t_title_upper = t_title.upper()
-                        is_match = q_clean.upper() in t_title_upper or any(w in t_title_upper for w in q_words)
-                        if is_match:
-                            try:
-                                async for tm in client.iter_messages(dialog.entity, reply_to=t.id, limit=30):
-                                    key = (dialog.id, tm.id)
-                                    if key not in found_map:
-                                        is_video = bool(tm.video or (getattr(tm, 'file', None) and getattr(tm.file, 'mime_type', '').startswith('video/')))
-                                        is_photo = bool(tm.photo or (getattr(tm, 'file', None) and getattr(tm.file, 'mime_type', '').startswith('image/')))
-                                        is_doc = bool(tm.media and not is_video and not is_photo)
-
-                                        fn = tm.file.name if getattr(tm, 'file', None) and tm.file.name else (f"video_{tm.id}.mp4" if is_video else (f"photo_{tm.id}.jpg" if is_photo else f"doc_{tm.id}"))
-                                        sz = round(tm.file.size / (1024*1024), 2) if getattr(tm, 'file', None) and tm.file.size else 0
-                                        sz_bytes = tm.file.size if getattr(tm, 'file', None) and tm.file.size else 0
-
-                                        found_map[key] = {
-                                            "msg_id": tm.id,
-                                            "chat_id": dialog.id,
-                                            "chat_title": f"{dialog.name} / {t_title}",
-                                            "sender_name": "Topic Post",
-                                            "date": tm.date.strftime("%Y-%m-%d %H:%M") if tm.date else "N/A",
-                                            "text": (tm.text or f"📁 Topic: {t_title}").replace("\n", " ")[:80],
-                                            "has_media": bool(tm.media),
-                                            "media_type": "VIDEO" if is_video else ("PHOTO" if is_photo else ("DOCUMENT" if is_doc else "TEXT")),
-                                            "filename": fn,
-                                            "size_mb": sz,
-                                            "size_bytes": sz_bytes,
-                                            "origin": "FORUM_TOPIC"
-                                        }
-                            except Exception:
-                                pass
-            except Exception:
-                pass
-    except Exception:
-        pass
-
-
-    # --- 2. BÚSQUEDA GLOBAL DE MENSAJES + EXPANSIÓN CONTEXTUAL Y DE ÁLBUMES ---
-    try:
-        async for msg in client.iter_messages(None, search=query, limit=limit):
-            cid = msg.chat_id
-            if cid not in chat_cache:
-                try:
-                    chat = await msg.get_chat()
-                    chat_cache[cid] = getattr(chat, 'title', getattr(chat, 'first_name', str(cid)))
-                except Exception:
-                    chat_cache[cid] = str(cid)
-            cname = chat_cache[cid]
-
-            key = (cid, msg.id)
-            if key not in found_map:
-                is_video = bool(msg.video or (getattr(msg, 'file', None) and getattr(msg.file, 'mime_type', '').startswith('video/')))
-                is_photo = bool(msg.photo or (getattr(msg, 'file', None) and getattr(msg.file, 'mime_type', '').startswith('image/')))
-                is_doc = bool(msg.media and not is_video and not is_photo)
-
-                fn = msg.file.name if getattr(msg, 'file', None) and msg.file.name else (f"video_{msg.id}.mp4" if is_video else (f"photo_{msg.id}.jpg" if is_photo else f"msg_{msg.id}"))
-                sz = round(msg.file.size / (1024*1024), 2) if getattr(msg, 'file', None) and msg.file.size else 0
-                sz_bytes = msg.file.size if getattr(msg, 'file', None) and msg.file.size else 0
-
-                s_name = "Usuario"
-                try:
-                    if msg.sender:
-                        s_name = getattr(msg.sender, 'first_name', '') or getattr(msg.sender, 'title', 'Usuario')
-                except Exception:
-                    pass
-
-                found_map[key] = {
-                    "msg_id": msg.id,
-                    "chat_id": cid,
-                    "chat_title": cname,
-                    "sender_name": s_name,
-                    "date": msg.date.strftime("%Y-%m-%d %H:%M") if msg.date else "N/A",
-                    "text": (msg.text or "[Archivo Multimedia]").replace("\n", " ")[:80],
-                    "has_media": bool(msg.media),
-                    "media_type": "VIDEO" if is_video else ("PHOTO" if is_photo else ("DOCUMENT" if is_doc else "TEXT")),
+                    "media_type": m_type,
                     "filename": fn,
                     "size_mb": sz,
                     "size_bytes": sz_bytes,
@@ -663,9 +667,9 @@ async def search_global_telegram_messages(
                         if album_msg.grouped_id == msg.grouped_id:
                             a_key = (cid, album_msg.id)
                             if a_key not in found_map:
-                                a_is_video = bool(album_msg.video or (getattr(album_msg, 'file', None) and getattr(album_msg.file, 'mime_type', '').startswith('video/')))
-                                a_is_photo = bool(album_msg.photo or (getattr(album_msg, 'file', None) and getattr(album_msg.file, 'mime_type', '').startswith('image/')))
-                                a_is_doc = bool(album_msg.media and not a_is_video and not a_is_photo)
+                                a_m_type = get_message_media_type(album_msg)
+                                a_is_video = (a_m_type == "VIDEO")
+                                a_is_photo = (a_m_type == "PHOTO")
 
                                 a_fn = album_msg.file.name if getattr(album_msg, 'file', None) and album_msg.file.name else (f"video_{album_msg.id}.mp4" if a_is_video else (f"photo_{album_msg.id}.jpg" if a_is_photo else f"msg_{album_msg.id}"))
                                 a_sz = round(album_msg.file.size / (1024*1024), 2) if getattr(album_msg, 'file', None) and album_msg.file.size else 0
@@ -679,7 +683,7 @@ async def search_global_telegram_messages(
                                     "date": album_msg.date.strftime("%Y-%m-%d %H:%M") if album_msg.date else "N/A",
                                     "text": f"[Álbum: {query}] {album_msg.text or ''}".replace("\n", " ")[:80],
                                     "has_media": bool(album_msg.media),
-                                    "media_type": "VIDEO" if a_is_video else ("PHOTO" if a_is_photo else ("DOCUMENT" if a_is_doc else "TEXT")),
+                                    "media_type": a_m_type,
                                     "filename": a_fn,
                                     "size_mb": a_sz,
                                     "size_bytes": a_sz_bytes,
@@ -695,9 +699,9 @@ async def search_global_telegram_messages(
                         if contig_msg.media:
                             c_key = (cid, contig_msg.id)
                             if c_key not in found_map:
-                                c_is_video = bool(contig_msg.video or (getattr(contig_msg, 'file', None) and getattr(contig_msg.file, 'mime_type', '').startswith('video/')))
-                                c_is_photo = bool(contig_msg.photo or (getattr(contig_msg, 'file', None) and getattr(contig_msg.file, 'mime_type', '').startswith('image/')))
-                                c_is_doc = bool(contig_msg.media and not c_is_video and not c_is_photo)
+                                c_m_type = get_message_media_type(contig_msg)
+                                c_is_video = (c_m_type == "VIDEO")
+                                c_is_photo = (c_m_type == "PHOTO")
                                 c_fn = contig_msg.file.name if getattr(contig_msg, 'file', None) and contig_msg.file.name else (f"video_{contig_msg.id}.mp4" if c_is_video else (f"photo_{contig_msg.id}.jpg" if c_is_photo else f"msg_{contig_msg.id}"))
                                 c_sz = round(contig_msg.file.size / (1024*1024), 2) if getattr(contig_msg, 'file', None) and contig_msg.file.size else 0
                                 c_sz_bytes = contig_msg.file.size if getattr(contig_msg, 'file', None) and contig_msg.file.size else 0
@@ -708,9 +712,9 @@ async def search_global_telegram_messages(
                                     "chat_title": cname,
                                     "sender_name": "Contenido Adyacente",
                                     "date": contig_msg.date.strftime("%Y-%m-%d %H:%M") if contig_msg.date else "N/A",
-                                    "text": f"[Mención de: {msg.text[:30]}] {contig_msg.text or ''}".replace("\n", " ")[:80],
+                                    "text": f"[Mención: {msg.text[:30]}] {contig_msg.text or ''}".replace("\n", " ")[:80],
                                     "has_media": True,
-                                    "media_type": "VIDEO" if c_is_video else ("PHOTO" if c_is_photo else "DOCUMENT"),
+                                    "media_type": c_m_type,
                                     "filename": c_fn,
                                     "size_mb": c_sz,
                                     "size_bytes": c_sz_bytes,
@@ -718,6 +722,52 @@ async def search_global_telegram_messages(
                                 }
                 except Exception:
                     pass
+    except Exception:
+        pass
+
+    # 2. RASTREO EN TÍTULOS DE FOROS DE TOPICS
+    try:
+        dialogs = await client.get_dialogs(limit=30)
+        forum_dialogs = [d for d in dialogs if d.is_channel and getattr(d.entity, 'forum', False)]
+
+        for dialog in forum_dialogs[:8]:
+            try:
+                topics = await fetch_all_forum_topics(client, dialog.entity, max_topics=100)
+                for t in topics:
+                    t_title = t.title or ""
+                    t_title_upper = t_title.upper()
+                    is_match = q_clean.upper() in t_title_upper or any(w in t_title_upper for w in q_words)
+                    if is_match:
+                        try:
+                            async for tm in client.iter_messages(dialog.entity, reply_to=t.id, limit=40):
+                                key = (dialog.id, tm.id)
+                                if key not in found_map:
+                                    tm_type = get_message_media_type(tm)
+                                    tm_is_video = (tm_type == "VIDEO")
+                                    tm_is_photo = (tm_type == "PHOTO")
+
+                                    fn = tm.file.name if getattr(tm, 'file', None) and tm.file.name else (f"video_{tm.id}.mp4" if tm_is_video else (f"photo_{tm.id}.jpg" if tm_is_photo else f"doc_{tm.id}"))
+                                    sz = round(tm.file.size / (1024*1024), 2) if getattr(tm, 'file', None) and tm.file.size else 0
+                                    sz_bytes = tm.file.size if getattr(tm, 'file', None) and tm.file.size else 0
+
+                                    found_map[key] = {
+                                        "msg_id": tm.id,
+                                        "chat_id": dialog.id,
+                                        "chat_title": f"{dialog.name} / {t_title}",
+                                        "sender_name": "Topic Post",
+                                        "date": tm.date.strftime("%Y-%m-%d %H:%M") if tm.date else "N/A",
+                                        "text": (tm.text or f"📁 Topic: {t_title}").replace("\n", " ")[:80],
+                                        "has_media": bool(tm.media),
+                                        "media_type": tm_type,
+                                        "filename": fn,
+                                        "size_mb": sz,
+                                        "size_bytes": sz_bytes,
+                                        "origin": "FORUM_TOPIC"
+                                    }
+                        except Exception:
+                            pass
+            except Exception:
+                pass
     except Exception:
         pass
 
@@ -729,9 +779,9 @@ async def search_global_telegram_messages(
     total_bytes = 0
 
     for r in found_map.values():
-        is_video = r["media_type"] == "VIDEO"
-        is_photo = r["media_type"] == "PHOTO"
-        is_doc = r["media_type"] == "DOCUMENT"
+        is_video = (r["media_type"] == "VIDEO")
+        is_photo = (r["media_type"] == "PHOTO")
+        is_doc = (r["media_type"] in ["DOCUMENT", "AUDIO"])
         has_media = r["has_media"]
 
         if media_filter == "MEDIA_ONLY" and not has_media:

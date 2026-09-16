@@ -379,6 +379,22 @@ function switchTab(tabId) {
     }
 }
 
+function handleTargetUrlInput() {
+    const raw = document.getElementById("input-target-url").value;
+    const badge = document.getElementById("badge-links-count");
+    if (!raw.trim()) {
+        badge.classList.add("hidden");
+        return;
+    }
+    const tokens = raw.split(/[\r\n,;]+/).map(t => t.trim()).filter(t => t.length > 0);
+    if (tokens.length > 1) {
+        badge.innerText = `🔗 ${tokens.length} enlaces detectados`;
+        badge.classList.remove("hidden");
+    } else {
+        badge.classList.add("hidden");
+    }
+}
+
 function handleJobTypeChange() {
     const val = document.getElementById("select-job-type").value;
     const batchBox = document.getElementById("batch-options-box");
@@ -395,7 +411,7 @@ function handleJobTypeChange() {
 async function startDownloadJob() {
     const targetUrl = document.getElementById("input-target-url").value.trim();
     const destination = document.getElementById("select-destination").value;
-    const jobType = document.getElementById("select-job-type").value;
+    let jobType = document.getElementById("select-job-type").value;
     const mediaFilter = document.getElementById("select-media-filter").value;
     const concurrency = parseInt(document.getElementById("slider-concurrency").value) || 10;
     const invertOrder = document.getElementById("check-invert-order").checked;
@@ -404,6 +420,12 @@ async function startDownloadJob() {
     if (!targetUrl) {
         alert("Por favor ingresa un enlace o ID de Telegram válido.");
         return;
+    }
+
+    // Auto-detección de múltiples enlaces
+    const rawTokens = targetUrl.split(/[\r\n,;]+/).map(t => t.trim()).filter(t => t.length > 0);
+    if (rawTokens.length > 1 && jobType === "SINGLE_MEDIA") {
+        jobType = "BATCH_LINKS";
     }
 
     try {

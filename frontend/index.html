@@ -264,8 +264,12 @@
 
                 <div class="flex flex-col gap-4">
                     <div>
-                        <label class="block text-xs font-semibold text-slate-300 mb-1.5">Enlace, Username o ID Numérico de Telegram</label>
-                        <input type="text" id="input-target-url" class="cyber-input font-mono text-sm" placeholder="https://t.me/canal/123  o  https://t.me/c/1234567/89  o  -1004340179079">
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="block text-xs font-semibold text-slate-300">Enlace(s), Username o ID Numérico de Telegram</label>
+                            <span id="badge-links-count" class="hidden text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"></span>
+                        </div>
+                        <textarea id="input-target-url" rows="3" oninput="handleTargetUrlInput()" class="cyber-input font-mono text-xs sm:text-sm resize-y" placeholder="Pegá uno o varios enlaces (1 por línea o separados por coma):&#10;https://t.me/c/12345/678&#10;https://t.me/c/12345/679&#10;https://t.me/canal/123"></textarea>
+                        <p class="text-[11px] text-slate-400 mt-1">💡 Podés pegar 1 solo enlace, una lista de 10, 20, 50+ enlaces de mensajes, o el enlace general de un canal/foro.</p>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -279,8 +283,9 @@
                         <div>
                             <label class="block text-xs font-semibold text-slate-300 mb-1.5">Modo de Extracción</label>
                             <select id="select-job-type" onchange="handleJobTypeChange()" class="cyber-input text-sm">
-                                <option value="SINGLE_MEDIA">⚡ Mensaje Único o Recientes (20)</option>
-                                <option value="BATCH_CHANNEL">📦 Lote de Canal (Batch)</option>
+                                <option value="SINGLE_MEDIA">⚡ Descarga Rápida (1 o varios enlaces)</option>
+                                <option value="BATCH_CHANNEL">📦 Lote de Canal Completo (Batch)</option>
+                                <option value="BATCH_LINKS">🔗 Lista de Múltiples Enlaces</option>
                             </select>
                         </div>
                         <div>

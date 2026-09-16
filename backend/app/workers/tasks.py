@@ -10,6 +10,9 @@ from app.db.models import Job, JobStatus, JobType, TelegramSession, DriveConnect
 from app.services.telegram_service import (
     get_user_telegram_client,
     parse_telegram_link,
+    parse_multiple_telegram_links,
+    get_message_media_type,
+    fetch_all_forum_topics,
     resolve_entity_safe,
     sanitize_filename,
     fast_download_media
@@ -34,27 +37,21 @@ def get_job_signal(job_id: int) -> str:
     return job_control_signals.get(job_id, "RUNNING")
 
 def matches_media_filter(msg, m_filter: str) -> bool:
-    if not msg.media:
+    if not msg or not getattr(msg, 'media', None):
         return False
-    if m_filter == "ALL":
+    if not m_filter or m_filter == "ALL":
         return True
-    if m_filter == "PHOTO" and msg.photo:
-        return True
+    m_type = get_message_media_type(msg)
+    if m_filter == "PHOTO":
+        return m_type == "PHOTO"
     if m_filter == "VIDEO":
-        if msg.video:
-            return True
-        mime = getattr(msg.file, "mime_type", "") if getattr(msg, "file", None) else ""
-        if mime and mime.startswith("video/"):
-            return True
-        return False
+        return m_type == "VIDEO"
     if m_filter == "DOCUMENT":
-        if msg.photo or msg.video:
-            return False
-        return bool(msg.media)
+        return m_type in ["DOCUMENT", "AUDIO"]
     return True
 
 async def execute_download_job(job_id: int):
-    """Pipeline completo de procesamiento asíncrono con Topics, Batch, Deduplicación y Descargas Directas."""
+    """Pipeline completo de procesamiento asíncrono con Topics, Multi-Link Batch, Deduplicación y Descargas Directas."""
     job_control_signals[job_id] = "RUNNING"
     
     async with AsyncSessionLocal() as db:
@@ -86,11 +83,11 @@ async def execute_download_job(job_id: int):
             except Exception:
                 params = {}
 
-        selected_topic_ids = params.get("selected_topic_ids")
+        selected_topic_ids = params.get("selected_topic_ids") or params.get("topic_ids")
         concurrency = max(1, min(20, params.get("concurrency", 10)))
         invert_order = bool(params.get("invert_order", False))
         limit_messages = params.get("limit_messages")
-        media_filter = params.get("media_filter", "ALL")
+        media_filter = params.get("media_filter") or params.get("filter_media") or "ALL"
 
         # 3. Obtener conexion de Google Drive si el destino es Drive
         drive_service = None
@@ -131,24 +128,21 @@ async def execute_download_job(job_id: int):
                 await manager.broadcast_user_job_progress(user_id, {"job_id": job.id, "status": job.status, "error": job.error_message})
                 return
 
-            parsed = parse_telegram_link(job.target_url or "")
-
-            # Recolectar mensajes a procesar según job_type
             items_to_download: List[Tuple[Any, str]] = [] # (msg, subfolder_or_topic_name)
             search_items = params.get("search_items")
 
+            # Directorio de almacenamiento persistente para Descargas Directas
+            job_storage_dir = os.path.join(settings.STORAGE_DIR, f"user_{user_id}", f"job_{job_id}")
+            if job.destination == "DIRECT_DOWNLOAD":
+                os.makedirs(job_storage_dir, exist_ok=True)
+
+            target_drive_folder = drive_root_folder_id
+
+            # CASO A: Ítems seleccionados desde Buscador Global 360°
             if search_items and len(search_items) > 0:
                 chat_title = sanitize_filename(job.target_url or "Busqueda_Telegram")
-                chat_folder_name = chat_title
-
-                # Directorio de almacenamiento persistente para Descargas Directas
-                job_storage_dir = os.path.join(settings.STORAGE_DIR, f"user_{user_id}", f"job_{job_id}")
-                if job.destination == "DIRECT_DOWNLOAD":
-                    os.makedirs(job_storage_dir, exist_ok=True)
-
-                target_drive_folder = drive_root_folder_id
                 if drive_service and drive_root_folder_id:
-                    target_drive_folder = create_or_get_folder(drive_service, chat_folder_name, parent_id=drive_root_folder_id)
+                    target_drive_folder = create_or_get_folder(drive_service, chat_title, parent_id=drive_root_folder_id)
 
                 for it in search_items:
                     cid = it.get("chat_id")
@@ -162,67 +156,116 @@ async def execute_download_job(job_id: int):
                         pass
 
             else:
-                # Resolver entidad normal
-                parsed = parse_telegram_link(job.target_url)
-                entity = await resolve_entity_safe(client, parsed.channel_ref)
+                parsed_links = parse_multiple_telegram_links(job.target_url or "")
+                is_multi_link = len(parsed_links) > 1 or job.job_type in [JobType.BATCH_LINKS, "BATCH_LINKS", "BATCH_LINKS_MULTIPLE"]
 
-                if not entity:
-                    job.status = JobStatus.FAILED
-                    job.error_message = f"No se pudo acceder al canal, grupo o foro '{parsed.channel_ref}'."
-                    await db.commit()
-                    await manager.broadcast_user_job_progress(user_id, {"job_id": job.id, "status": job.status, "error": job.error_message})
-                    return
+                # CASO B: Múltiples enlaces ingresados (10, 20, 50+ links)
+                if is_multi_link and len(parsed_links) > 0:
+                    # Agrupar links por canal/grupo para optimizar consultas
+                    groups_by_ref: Dict[str, List[Any]] = {}
+                    for p in parsed_links:
+                        groups_by_ref.setdefault(p.channel_ref, []).append(p)
 
-                chat_title = getattr(entity, 'title', getattr(entity, 'first_name', 'Telegram_Media'))
-                chat_folder_name = sanitize_filename(chat_title)
+                    for channel_ref, p_list in groups_by_ref.items():
+                        entity = await resolve_entity_safe(client, channel_ref)
+                        if not entity:
+                            continue
 
-                # Directorio de almacenamiento persistente para Descargas Directas
-                job_storage_dir = os.path.join(settings.STORAGE_DIR, f"user_{user_id}", f"job_{job_id}")
-                if job.destination == "DIRECT_DOWNLOAD":
-                    os.makedirs(job_storage_dir, exist_ok=True)
+                        chat_title = getattr(entity, 'title', getattr(entity, 'first_name', str(channel_ref)))
+                        group_folder = sanitize_filename(chat_title)
 
-                # Subcarpeta en Google Drive
-                target_drive_folder = drive_root_folder_id
-                if drive_service and drive_root_folder_id:
-                    target_drive_folder = create_or_get_folder(drive_service, chat_folder_name, parent_id=drive_root_folder_id)
+                        # B.1 Mensajes individuales con ID específico
+                        specific_msg_ids = [p.msg_id for p in p_list if p.msg_id is not None]
+                        if specific_msg_ids:
+                            for chunk_start in range(0, len(specific_msg_ids), 100):
+                                chunk_ids = specific_msg_ids[chunk_start:chunk_start + 100]
+                                try:
+                                    msgs = await client.get_messages(entity, ids=chunk_ids)
+                                    if not isinstance(msgs, list):
+                                        msgs = [msgs] if msgs else []
+                                    for m in msgs:
+                                        if m and m.media and matches_media_filter(m, media_filter):
+                                            items_to_download.append((m, group_folder))
+                                except Exception:
+                                    pass
 
-                if job.job_type == JobType.FORUM_TOPICS:
-                    from telethon.tl.functions.messages import GetForumTopicsRequest
-                    res_topics = await client(GetForumTopicsRequest(
-                        peer=entity, offset_date=None, offset_id=0, offset_topic=0, limit=300
-                    ))
-                    all_topics = list(res_topics.topics)
-                    
-                    target_topics = all_topics
-                    if selected_topic_ids and len(selected_topic_ids) > 0:
-                        target_topics = [t for t in all_topics if t.id in selected_topic_ids]
+                        # B.2 Enlaces de topics sin msg_id específico
+                        topic_links = [p.topic_id for p in p_list if p.topic_id is not None and p.msg_id is None]
+                        for top_id in topic_links:
+                            async for m in client.iter_messages(entity, reply_to=top_id, limit=limit_messages or 200, reverse=invert_order):
+                                if matches_media_filter(m, media_filter):
+                                    items_to_download.append((m, f"{group_folder}_Topic_{top_id}"))
 
-                    for topic in target_topics:
-                        t_title = sanitize_filename(topic.title)
-                        async for m in client.iter_messages(entity, reply_to=topic.id, reverse=invert_order):
+                        # B.3 Enlaces de canal general sin msg_id ni topic_id
+                        has_bare_channel = any(p.msg_id is None and p.topic_id is None for p in p_list)
+                        if has_bare_channel:
+                            async for m in client.iter_messages(entity, limit=limit_messages or 50, reverse=invert_order):
+                                if matches_media_filter(m, media_filter):
+                                    items_to_download.append((m, group_folder))
+
+                # CASO C: Enlace individual o Canal completo / Foro
+                else:
+                    parsed = parsed_links[0] if parsed_links else parse_telegram_link(job.target_url)
+                    entity = await resolve_entity_safe(client, parsed.channel_ref)
+
+                    if not entity:
+                        job.status = JobStatus.FAILED
+                        job.error_message = f"No se pudo acceder al canal, grupo o foro '{parsed.channel_ref}'."
+                        await db.commit()
+                        await manager.broadcast_user_job_progress(user_id, {"job_id": job.id, "status": job.status, "error": job.error_message})
+                        return
+
+                    chat_title = getattr(entity, 'title', getattr(entity, 'first_name', 'Telegram_Media'))
+                    chat_folder_name = sanitize_filename(chat_title)
+
+                    if drive_service and drive_root_folder_id:
+                        target_drive_folder = create_or_get_folder(drive_service, chat_folder_name, parent_id=drive_root_folder_id)
+
+                    is_forum = bool(getattr(entity, 'forum', False))
+
+                    # C.1 Si es un Foro (Topics) o se solicitó modo FORUM_TOPICS
+                    if job.job_type == JobType.FORUM_TOPICS or (is_forum and not parsed.msg_id and not parsed.topic_id and job.job_type != JobType.SINGLE_MEDIA):
+                        all_topics = await fetch_all_forum_topics(client, entity, max_topics=500)
+                        
+                        target_topics = all_topics
+                        if selected_topic_ids and len(selected_topic_ids) > 0:
+                            target_topics = [t for t in all_topics if t.id in selected_topic_ids]
+
+                        # Iterar cada topic del foro
+                        for topic in target_topics:
+                            t_title = sanitize_filename(getattr(topic, 'title', f"Topic_{topic.id}"))
+                            async for m in client.iter_messages(entity, reply_to=topic.id, limit=limit_messages, reverse=invert_order):
+                                if matches_media_filter(m, media_filter):
+                                    items_to_download.append((m, t_title))
+
+                        # Incluir mensajes del hilo principal / General si no estaban en topics
+                        async for m in client.iter_messages(entity, limit=min(limit_messages or 100, 100), reverse=invert_order):
                             if matches_media_filter(m, media_filter):
-                                items_to_download.append((m, t_title))
+                                if not any(x[0].id == m.id for x in items_to_download):
+                                    items_to_download.append((m, "General"))
 
-                elif job.job_type == JobType.BATCH_CHANNEL or job.job_type == "BATCH_CHANNEL":
-                    lim = limit_messages if (limit_messages and limit_messages > 0) else 500
-                    async for m in client.iter_messages(entity, limit=lim, reverse=invert_order):
-                        if matches_media_filter(m, media_filter):
-                            items_to_download.append((m, ""))
-
-                else: # SINGLE_MEDIA / SINGLE_LINK
-                    if parsed.msg_id:
-                        msg = await client.get_messages(entity, ids=parsed.msg_id)
-                        if msg and matches_media_filter(msg, media_filter):
-                            items_to_download.append((msg, ""))
-                    elif parsed.topic_id:
-                        async for m in client.iter_messages(entity, reply_to=parsed.topic_id, limit=limit_messages or 200, reverse=invert_order):
-                            if matches_media_filter(m, media_filter):
-                                items_to_download.append((m, ""))
-                    else:
+                    # C.2 Batch tradicional de canal no-foro
+                    elif (job.job_type == JobType.BATCH_CHANNEL or job.job_type == "BATCH_CHANNEL") and not is_forum:
                         lim = limit_messages if (limit_messages and limit_messages > 0) else 500
                         async for m in client.iter_messages(entity, limit=lim, reverse=invert_order):
                             if matches_media_filter(m, media_filter):
                                 items_to_download.append((m, ""))
+
+                    # C.3 Enlace individual de mensaje o topic único
+                    else:
+                        if parsed.msg_id:
+                            msg = await client.get_messages(entity, ids=parsed.msg_id)
+                            if msg and matches_media_filter(msg, media_filter):
+                                items_to_download.append((msg, ""))
+                        elif parsed.topic_id:
+                            async for m in client.iter_messages(entity, reply_to=parsed.topic_id, limit=limit_messages or 200, reverse=invert_order):
+                                if matches_media_filter(m, media_filter):
+                                    items_to_download.append((m, ""))
+                        else:
+                            lim = limit_messages if (limit_messages and limit_messages > 0) else 500
+                            async for m in client.iter_messages(entity, limit=lim, reverse=invert_order):
+                                if matches_media_filter(m, media_filter):
+                                    items_to_download.append((m, ""))
 
             if not items_to_download:
                 job.status = JobStatus.FAILED
