@@ -384,6 +384,7 @@ async def execute_download_job(job_id: int):
                                     try: os.remove(target_file_path)
                                     except Exception: pass
 
+                                chat_ref_str = str(getattr(msg, 'chat_id', getattr(msg, 'peer_id', 'tg'))).lstrip("-")
                                 new_file = await register_processed_file(
                                     db=local_db,
                                     user_id=user_id,
@@ -391,7 +392,7 @@ async def execute_download_job(job_id: int):
                                     filename=clean_name,
                                     file_size_bytes=fsize,
                                     mime_type=getattr(msg.file, "mime_type", None) if getattr(msg, "file", None) else None,
-                                    telegram_ref=f"{parsed.channel_ref}/{msg.id}",
+                                    telegram_ref=f"{chat_ref_str}/{msg.id}",
                                     drive_file_id=drive_id,
                                     drive_web_link=web_link,
                                     local_path=target_file_path if job.destination == "DIRECT_DOWNLOAD" else None
