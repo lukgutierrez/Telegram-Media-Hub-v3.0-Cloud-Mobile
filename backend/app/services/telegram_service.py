@@ -619,13 +619,16 @@ async def search_global_telegram_messages(
     try:
         async for msg in client.iter_messages(None, search=query, limit=limit):
             cid = msg.chat_id
+            chat_obj = None
             if cid not in chat_cache:
                 try:
-                    chat = await msg.get_chat()
-                    chat_cache[cid] = getattr(chat, 'title', getattr(chat, 'first_name', str(cid)))
+                    chat_obj = await msg.get_chat()
+                    chat_cache[cid] = (chat_obj, getattr(chat_obj, 'title', getattr(chat_obj, 'first_name', str(cid))))
                 except Exception:
-                    chat_cache[cid] = str(cid)
-            cname = chat_cache[cid]
+                    chat_cache[cid] = (None, str(cid))
+            
+            cached_chat, cname = chat_cache[cid]
+            chat_target = cached_chat or chat_obj or cid
 
             key = (cid, msg.id)
             if key not in found_map:
@@ -663,7 +666,7 @@ async def search_global_telegram_messages(
             # Si es parte de un álbum (pack de fotos/videos), extraer los demás archivos del álbum
             if msg.grouped_id:
                 try:
-                    async for album_msg in client.iter_messages(cid, min_id=max(1, msg.id - 10), max_id=msg.id + 10):
+                    async for album_msg in client.iter_messages(chat_target, offset_id=msg.id + 20, min_id=max(0, msg.id - 20), limit=40):
                         if album_msg.grouped_id == msg.grouped_id:
                             a_key = (cid, album_msg.id)
                             if a_key not in found_map:
@@ -692,13 +695,14 @@ async def search_global_telegram_messages(
                 except Exception:
                     pass
 
-            # Captura de contexto adyacente (si es mensaje de texto que nombra la persona, revisar +- 6 mensajes contiguos)
-            if not msg.media and msg.text:
-                try:
-                    async for contig_msg in client.iter_messages(cid, min_id=max(1, msg.id - 6), max_id=msg.id + 6):
-                        if contig_msg.media:
-                            c_key = (cid, contig_msg.id)
-                            if c_key not in found_map:
+            # Captura de contexto adyacente (mensajes contiguos dentro del mismo lote/subida +- 10 mensajes)
+            try:
+                async for contig_msg in client.iter_messages(chat_target, offset_id=msg.id + 10, min_id=max(0, msg.id - 10), limit=20):
+                    if contig_msg.media and contig_msg.id != msg.id:
+                        c_key = (cid, contig_msg.id)
+                        if c_key not in found_map:
+                            time_diff = abs((contig_msg.date - msg.date).total_seconds()) if (contig_msg.date and msg.date) else 9999
+                            if time_diff < 3600 or (contig_msg.sender_id and contig_msg.sender_id == msg.sender_id):
                                 c_m_type = get_message_media_type(contig_msg)
                                 c_is_video = (c_m_type == "VIDEO")
                                 c_is_photo = (c_m_type == "PHOTO")
@@ -712,7 +716,7 @@ async def search_global_telegram_messages(
                                     "chat_title": cname,
                                     "sender_name": "Contenido Adyacente",
                                     "date": contig_msg.date.strftime("%Y-%m-%d %H:%M") if contig_msg.date else "N/A",
-                                    "text": f"[Mención: {msg.text[:30]}] {contig_msg.text or ''}".replace("\n", " ")[:80],
+                                    "text": f"[Pack Relacionado: {query}] {contig_msg.text or ''}".replace("\n", " ")[:80],
                                     "has_media": True,
                                     "media_type": c_m_type,
                                     "filename": c_fn,
@@ -720,8 +724,8 @@ async def search_global_telegram_messages(
                                     "size_bytes": c_sz_bytes,
                                     "origin": "CONTEXT_ADJACENT"
                                 }
-                except Exception:
-                    pass
+            except Exception:
+                pass
     except Exception:
         pass
 
