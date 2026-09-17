@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
 # TELEGRAM MEDIA HUB 360° - SCRIPT DE DESPLIEGUE AUTOMÁTICO EN ORACLE CLOUD VPS
-# Autor: @lukgtz (Luciano Gutierrez - Salta, Argentina)
+# Autor: @lukgtz (Luciano Gutierrez)
 # ==============================================================================
 
 set -e

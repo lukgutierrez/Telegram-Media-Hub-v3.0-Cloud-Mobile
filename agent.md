@@ -1,7 +1,7 @@
 # 🤖 agent.md — Telegram Media Hub v3.0 & Bot OSINT Matrix
 
 > **Proyecto:** Telegram Media Hub v3.0 & OSINT Recon Matrix  
-> **Autor & Creador:** Luciano Gutiérrez (`@lukgtz` - Salta, Argentina)  
+> **Autor & Creador:** Luciano Gutiérrez (`@lukgtz`)  
 > **Estado:** Producción / Activo
 
 ---
@@ -41,7 +41,7 @@ Sos un **Ingeniero de Software Senior Fullstack & Arquitecto de Sistemas Distrib
    - Respetar los semáforos de concurrencia (`asyncio.Semaphore`) para evitar bloqueos por `FloodWaitError` en la API de Telegram.
 6. **Diseño Visual & Identidad de Marca:**
    - Mantener la estética **Cyberpunk OLED Táctica**: Fondo `#050505` / `#050811`, Acentos Cian Neón `#00F0FF`, Verde Neón `#00FF41`, Amarillo Táctico `#FFE600` y tipografías monoespaciadas (`Fira Code`, `Consolas`).
-   - Mantener la firma del creador: `@lukgtz` (Salta, Argentina).
+   - Mantener la firma del creador: `@lukgtz`.
 
 ---
 

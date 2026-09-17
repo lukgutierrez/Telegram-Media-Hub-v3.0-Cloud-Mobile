@@ -2,7 +2,7 @@
 
 > **Última actualización:** 2026-09-10T12:00:00-03:00  
 > **Versión Actual:** 3.0.0 Release  
-> **Responsable:** Luciano Gutiérrez (`@lukgtz` - Salta, Argentina)
+> **Responsable:** Luciano Gutiérrez (`@lukgtz`)
 
 ---
 

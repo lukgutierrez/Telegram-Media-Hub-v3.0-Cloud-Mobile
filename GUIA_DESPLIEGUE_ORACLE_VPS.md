@@ -1,7 +1,7 @@
 # ☁️ Guía Paso a Paso: Despliegue en Oracle Cloud Free Tier (VPS 24/7 Gratis)
 
 > **TELEGRAM MEDIA HUB 360°**  
-> **Creado por:** `@lukgtz` (Luciano Gutiérrez - Salta, Argentina)  
+> **Creado por:** `@lukgtz` (Luciano Gutiérrez)  
 > **Servidor:** Ubuntu Linux en Oracle Cloud (4 vCPUs, 24 GB RAM, 200 GB SSD) - **100% Gratis de por vida**
 
 ---

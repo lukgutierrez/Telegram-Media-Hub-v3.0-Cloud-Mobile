@@ -63,7 +63,7 @@ class _MainShellState extends State<MainShell> {
                 const Spacer(),
                 if (!isMobile) ...[
                   const Text(
-                    '@lukgtz (Salta, Argentina)',
+                    '@lukgtz',
                     style: TextStyle(color: CyberTheme.textMuted, fontSize: 11, fontFamily: 'monospace'),
                   ),
                   const SizedBox(width: 12),

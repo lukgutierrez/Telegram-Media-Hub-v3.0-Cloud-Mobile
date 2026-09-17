@@ -17,7 +17,7 @@
 
 <br/>
 
-**Architect & Lead Engineer:** [Luciano Gutiérrez (`@lukgtz`)](https://github.com/lukgutierrez) • *Salta, Argentina*  
+**Architect & Lead Engineer:** [Luciano Gutiérrez (`@lukgtz`)](https://github.com/lukgutierrez) • *Software Engineer & Systems Architect*  
 **System Class:** Distributed Microservices / OSINT Acquisition & Cloud Synchronization Engine
 
 <br/>
@@ -350,8 +350,7 @@ tests/test_worker_concurrency.py .......                                 [100%]
 ┌────────────────────────────────────────────────────────────────────────┐
 │                                                                        │
 │   👨‍💻 Luciano Gutiérrez                                                 │
-│   Software Engineer • OSINT Researcher • Systems Architect            │
-│   📍 Salta, Argentina                                                  │
+│   Software Engineer • Systems Architect • OSINT Researcher             │
 │                                                                        │
 │   Specialties: Distributed Systems • Python / FastAPI • Flutter Dart   │
 │   Cloud Architecture (Docker, Linux, VPS) • Cyber Security & OSINT     │
@@ -368,6 +367,6 @@ tests/test_worker_concurrency.py .......                                 [100%]
 
 <br/>
 
-<sub>Developed with ⚡ precision by **@lukgtz** • Salta, Argentina • Open Source Software for Engineers & Researchers.</sub>
+<sub>Developed with ⚡ precision by **@lukgtz** • Open Source Software for Engineers & Researchers.</sub>
 
 </div>

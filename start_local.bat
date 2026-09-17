@@ -5,7 +5,7 @@ chcp 65001 > nul
 cls
 echo ========================================================
 echo   TELEGRAM MEDIA HUB v3.0 - FASTAPI + WEB INTERFACE
-echo   Creado por: @lukgtz (Luciano Gutierrez - Salta, Arg)
+echo   Creado por: @lukgtz (Luciano Gutierrez)
 echo ========================================================
 echo.
 echo [1/3] Verificando dependencias...

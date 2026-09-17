@@ -591,7 +591,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
                   const SizedBox(height: 20),
                   const Text(
-                    'Desarrollado por @lukgtz • Salta, Argentina',
+                    'Desarrollado por @lukgtz • Cloud Edition',
                     style: TextStyle(color: CyberTheme.textMuted, fontSize: 11, fontFamily: 'monospace'),
                   ),
                 ],

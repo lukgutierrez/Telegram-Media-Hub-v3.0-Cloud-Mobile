@@ -6,7 +6,7 @@ cls
 
 echo =========================================================================
 echo   TELEGRAM MEDIA HUB v3.0 - ACCESO GLOBAL EN INTERNET 24/7
-echo   Creador: @lukgtz (Luciano Gutierrez - Salta, Argentina)
+echo   Creador: @lukgtz (Luciano Gutierrez)
 echo =========================================================================
 echo.
 echo [1/3] Iniciando Servidor Backend FastAPI Turbo...
