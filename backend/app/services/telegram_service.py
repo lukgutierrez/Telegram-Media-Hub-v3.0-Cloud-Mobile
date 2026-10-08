@@ -312,10 +312,14 @@ async def list_user_dialogs(client: TelegramClient) -> List[Dict[str, Any]]:
     return chats
 
 
-async def fast_download_media(client: TelegramClient, message, out_path: str, progress_callback=None, workers: int = 6):
-    """Descarga de ultra alta velocidad mediante chunks paralelos (512KB) y soporte para cryptg."""
+async def fast_download_media(client: TelegramClient, message, out_path: str, progress_callback=None, workers: int = 3):
+    """Descarga de ultra alta velocidad mediante chunks paralelos (512KB) con timeouts y fallback automático."""
     if not message.media:
         return None
+
+    file_size = getattr(message.file, "size", 0) or 0
+    if not file_size or file_size < 512 * 1024:
+        return await client.download_media(message, file=out_path, progress_callback=progress_callback)
 
     try:
         loc = utils.get_input_location(message)
@@ -324,10 +328,6 @@ async def fast_download_media(client: TelegramClient, message, out_path: str, pr
         else:
             media_dc_id, input_loc = client.session.dc_id, loc
     except Exception:
-        return await client.download_media(message, file=out_path, progress_callback=progress_callback)
-
-    file_size = getattr(message.file, "size", 0) or 0
-    if not file_size or file_size < 512 * 1024:
         return await client.download_media(message, file=out_path, progress_callback=progress_callback)
 
     part_size = 512 * 1024 # 512 KB
@@ -352,9 +352,8 @@ async def fast_download_media(client: TelegramClient, message, out_path: str, pr
     async def worker():
         nonlocal downloaded_bytes
         borrowed = False
-        if is_same_dc:
-            sender = client._sender
-        else:
+        sender = client._sender
+        if not is_same_dc:
             try:
                 sender = await client._borrow_exported_sender(media_dc_id)
                 borrowed = True
@@ -370,27 +369,35 @@ async def fast_download_media(client: TelegramClient, message, out_path: str, pr
                         break
 
                     offset = part_idx * part_size
-                    # En la API de Telegram, limit DEBE ser múltiplo de 4KB (512KB) incluso en el último chunk
                     req = GetFileRequest(location=input_loc, offset=offset, limit=part_size)
                     
-                    try:
-                        if is_same_dc or not borrowed:
-                            res = await client(req)
-                        else:
-                            res = await sender.send(req)
-                    except Exception:
-                        res = await client(req)
+                    chunk_success = False
+                    for retry in range(3):
+                        try:
+                            if is_same_dc or not borrowed:
+                                res = await asyncio.wait_for(client(req), timeout=25.0)
+                            else:
+                                res = await asyncio.wait_for(sender.send(req), timeout=25.0)
+                            
+                            f.seek(offset)
+                            f.write(res.bytes)
+                            chunk_success = True
 
-                    f.seek(offset)
-                    f.write(res.bytes)
+                            async with lock:
+                                downloaded_bytes += len(res.bytes)
+                                if progress_callback:
+                                    try:
+                                        progress_callback(min(downloaded_bytes, file_size), file_size)
+                                    except Exception:
+                                        pass
+                            break
+                        except Exception as chunk_err:
+                            if retry == 2:
+                                # Re-encolar si falla para no perder el bloque
+                                queue.put_nowait(part_idx)
+                                raise chunk_err
+                            await asyncio.sleep(1.0 * (retry + 1))
 
-                    async with lock:
-                        downloaded_bytes += len(res.bytes)
-                        if progress_callback:
-                            try:
-                                progress_callback(min(downloaded_bytes, file_size), file_size)
-                            except Exception:
-                                pass
                     queue.task_done()
         finally:
             if borrowed:
@@ -399,10 +406,18 @@ async def fast_download_media(client: TelegramClient, message, out_path: str, pr
                 except Exception:
                     pass
 
-    num_workers = min(workers, parts_count)
-    tasks = [asyncio.create_task(worker()) for _ in range(num_workers)]
-    await asyncio.gather(*tasks)
-    return out_path
+    try:
+        num_workers = min(max(1, workers), parts_count, 4)
+        tasks = [asyncio.create_task(worker()) for _ in range(num_workers)]
+        max_total_timeout = max(90.0, (file_size / (1024 * 1024)) * 8.0)
+        await asyncio.wait_for(asyncio.gather(*tasks), timeout=max_total_timeout)
+        if os.path.exists(out_path) and os.path.getsize(out_path) >= file_size:
+            return out_path
+    except Exception as gather_err:
+        print(f"Aviso: Fast parallel download derivó a fallback nativo ({gather_err})")
+
+    # Fallback garantizado nativo de Telethon
+    return await client.download_media(message, file=out_path, progress_callback=progress_callback)
 
 
 async def fetch_all_forum_topics(client: TelegramClient, entity, max_topics: int = 500) -> List[Any]:

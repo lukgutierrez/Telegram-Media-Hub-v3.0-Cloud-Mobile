@@ -33,7 +33,8 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), default=utcnow)
 
     # Relaciones
-    telegram_session = relationship("TelegramSession", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    telegram_sessions = relationship("TelegramSession", back_populates="user", cascade="all, delete-orphan")
+    telegram_session = relationship("TelegramSession", back_populates="user", uselist=False, viewonly=True)
     drive_connection = relationship("DriveConnection", back_populates="user", uselist=False, cascade="all, delete-orphan")
     jobs = relationship("Job", back_populates="user", cascade="all, delete-orphan")
     files = relationship("File", back_populates="user", cascade="all, delete-orphan")
@@ -42,16 +43,21 @@ class TelegramSession(Base):
     __tablename__ = "telegram_sessions"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     phone = Column(String(50), nullable=True)
     # Almacenamiento cifrado con Fernet/AES (StringSession)
     encrypted_session_string = Column(Text, nullable=True)
     status = Column(String(50), default="DISCONNECTED") # DISCONNECTED, PENDING_CODE, PENDING_PASSWORD, CONNECTED
     phone_code_hash = Column(String(255), nullable=True) # Para completar el flujo de login
+    account_name = Column(String(100), nullable=True)
+    telegram_id = Column(String(100), nullable=True)
+    username = Column(String(100), nullable=True)
+    first_name = Column(String(100), nullable=True)
+    is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), default=utcnow)
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
-    user = relationship("User", back_populates="telegram_session")
+    user = relationship("User", back_populates="telegram_sessions")
 
 class DriveConnection(Base):
     __tablename__ = "drive_connections"

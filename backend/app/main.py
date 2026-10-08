@@ -18,7 +18,7 @@ async def lifespan(app: FastAPI):
     # Inicializar tablas al arrancar
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        # Migraciones ligeras si la DB SQLite ya existía
+        # Migraciones ligeras si la DB SQLite/PostgreSQL ya existía
         try:
             await conn.execute(text("ALTER TABLE files ADD COLUMN local_path VARCHAR(500);"))
         except Exception:
@@ -27,6 +27,25 @@ async def lifespan(app: FastAPI):
             await conn.execute(text("ALTER TABLE jobs ADD COLUMN params_json TEXT;"))
         except Exception:
             pass
+        # Migraciones multi-cuenta telegram_sessions
+        try:
+            await conn.execute(text("ALTER TABLE telegram_sessions DROP CONSTRAINT IF EXISTS telegram_sessions_user_id_key;"))
+        except Exception:
+            pass
+        for col_def in [
+            "account_name VARCHAR(100)",
+            "telegram_id VARCHAR(100)",
+            "username VARCHAR(100)",
+            "first_name VARCHAR(100)",
+            "is_active BOOLEAN DEFAULT TRUE"
+        ]:
+            try:
+                await conn.execute(text(f"ALTER TABLE telegram_sessions ADD COLUMN IF NOT EXISTS {col_def};"))
+            except Exception:
+                try:
+                    await conn.execute(text(f"ALTER TABLE telegram_sessions ADD COLUMN {col_def};"))
+                except Exception:
+                    pass
     yield
 
 app = FastAPI(

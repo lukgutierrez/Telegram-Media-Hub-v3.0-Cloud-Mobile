@@ -181,19 +181,29 @@
             <!-- Estado de Conexiones Rápidas (3 Tarjetas) -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <!-- Tarjeta Telegram -->
-                <div class="cyber-card p-4 flex items-center justify-between">
+                <div class="cyber-card p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div class="flex items-center gap-3.5">
-                        <div class="w-11 h-11 rounded-xl bg-sky-500/10 border border-sky-400/40 flex items-center justify-center text-sky-400 text-2xl">
+                        <div class="w-11 h-11 rounded-xl bg-sky-500/10 border border-sky-400/40 flex items-center justify-center text-sky-400 text-2xl flex-shrink-0">
                             <i class="fa-brands fa-telegram"></i>
                         </div>
                         <div>
-                            <h3 class="font-bold text-sm text-white">Cuenta de Telegram</h3>
+                            <div class="flex items-center gap-2">
+                                <h3 class="font-bold text-sm text-white">Telegram</h3>
+                                <span id="tg-account-name-badge" class="text-[11px] font-mono text-cyan-400 font-bold hidden"></span>
+                            </div>
                             <div id="status-badge-telegram" class="mt-0.5 inline-block status-badge status-disconnected">Desconectado</div>
                         </div>
                     </div>
-                    <button id="btn-tg-action" onclick="openTelegramModal()" class="px-3.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 text-xs font-bold transition">
-                        Conectar
-                    </button>
+                    <div class="flex items-center gap-2 flex-wrap">
+                        <select id="tg-account-selector" onchange="switchTelegramAccount(this.value)" class="cyber-input text-xs py-1 px-2 hidden bg-slate-900 border-sky-500/40 text-sky-200">
+                        </select>
+                        <button id="btn-tg-add-account" onclick="openTelegramModal(true)" class="px-2.5 py-1.5 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 border border-sky-500/30 text-xs font-semibold transition hidden" title="Vincular otra cuenta sin cerrar sesión">
+                            <i class="fa-solid fa-plus"></i> Otra
+                        </button>
+                        <button id="btn-tg-action" onclick="openTelegramModal(false)" class="px-3.5 py-1.5 rounded-lg bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/30 text-xs font-bold transition">
+                            Conectar
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Tarjeta Google Drive -->

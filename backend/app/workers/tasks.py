@@ -63,8 +63,8 @@ async def execute_download_job(job_id: int):
 
         user_id = job.user_id
         
-        # 1. Obtener sesion de Telegram
-        stmt_tg = select(TelegramSession).where(TelegramSession.user_id == user_id)
+        # 1. Obtener sesion de Telegram (priorizando la cuenta activa)
+        stmt_tg = select(TelegramSession).where(TelegramSession.user_id == user_id).order_by(TelegramSession.is_active.desc(), TelegramSession.id.desc())
         res_tg = await db.execute(stmt_tg)
         tg_sess = res_tg.scalars().first()
         
@@ -342,69 +342,77 @@ async def execute_download_job(job_id: int):
                                 "total_files": total_files_count
                             }))
 
+                    success = False
+                    fsize = 0
                     try:
-                        await fast_download_media(client, msg, out_path=target_file_path, progress_callback=in_flight_progress, workers=6)
-                    except Exception as dl_err:
-                        print(f"Error descargando msg {msg.id}: {dl_err}")
                         try:
-                            await client.download_media(msg, file=target_file_path, progress_callback=in_flight_progress)
-                        except Exception as dl_err2:
-                            print(f"Error fallback msg {msg.id}: {dl_err2}")
-                            return
+                            await fast_download_media(client, msg, out_path=target_file_path, progress_callback=in_flight_progress, workers=4)
+                        except Exception as dl_err:
+                            print(f"[Worker] Error en fast_download_media msg {msg.id}: {dl_err}. Probando fallback...")
+                            try:
+                                await client.download_media(msg, file=target_file_path, progress_callback=in_flight_progress)
+                            except Exception as dl_err2:
+                                print(f"[Worker] Error en fallback msg {msg.id}: {dl_err2}")
 
-                    if os.path.exists(target_file_path):
-                        fsize = os.path.getsize(target_file_path)
-                        f_hash = calculate_sha256(target_file_path)
-                        
-                        async with AsyncSessionLocal() as local_db:
-                            existing_file = await check_duplicate_file(local_db, user_id, f_hash)
-                            if existing_file:
-                                if job.destination == "DIRECT_DOWNLOAD" and (not existing_file.local_path or not os.path.exists(existing_file.local_path)):
-                                    existing_file.local_path = target_file_path
-                                    await local_db.commit()
+                        if os.path.exists(target_file_path):
+                            fsize = os.path.getsize(target_file_path)
+                            f_hash = calculate_sha256(target_file_path)
+                            
+                            async with AsyncSessionLocal() as local_db:
+                                existing_file = await check_duplicate_file(local_db, user_id, f_hash)
+                                if existing_file:
+                                    if job.destination == "DIRECT_DOWNLOAD" and (not existing_file.local_path or not os.path.exists(existing_file.local_path)):
+                                        existing_file.local_path = target_file_path
+                                        await local_db.commit()
 
-                                job_file = JobFile(
-                                    job_id=job.id,
-                                    file_id=existing_file.id,
-                                    status="DEDUP_SKIPPED"
-                                )
-                                local_db.add(job_file)
-                                await local_db.commit()
-                                if job.destination == "GDRIVE":
-                                    try: os.remove(target_file_path)
-                                    except Exception: pass
-                            else:
-                                drive_id, web_link = None, None
-                                if drive_service and target_drive_folder:
-                                    drive_id, web_link, up_err = upload_file_to_drive(
-                                        drive_service,
-                                        target_file_path,
-                                        folder_id=target_drive_folder
+                                    job_file = JobFile(
+                                        job_id=job.id,
+                                        file_id=existing_file.id,
+                                        status="DEDUP_SKIPPED"
                                     )
-                                    try: os.remove(target_file_path)
-                                    except Exception: pass
+                                    local_db.add(job_file)
+                                    await local_db.commit()
+                                    if job.destination == "GDRIVE":
+                                        try: os.remove(target_file_path)
+                                        except Exception: pass
+                                    success = True
+                                else:
+                                    drive_id, web_link = None, None
+                                    if drive_service and target_drive_folder:
+                                        drive_id, web_link, up_err = upload_file_to_drive(
+                                            drive_service,
+                                            target_file_path,
+                                            folder_id=target_drive_folder
+                                        )
+                                        try: os.remove(target_file_path)
+                                        except Exception: pass
 
-                                chat_ref_str = str(getattr(msg, 'chat_id', getattr(msg, 'peer_id', 'tg'))).lstrip("-")
-                                new_file = await register_processed_file(
-                                    db=local_db,
-                                    user_id=user_id,
-                                    sha256=f_hash,
-                                    filename=clean_name,
-                                    file_size_bytes=fsize,
-                                    mime_type=getattr(msg.file, "mime_type", None) if getattr(msg, "file", None) else None,
-                                    telegram_ref=f"{chat_ref_str}/{msg.id}",
-                                    drive_file_id=drive_id,
-                                    drive_web_link=web_link,
-                                    local_path=target_file_path if job.destination == "DIRECT_DOWNLOAD" else None
-                                )
-                                job_file = JobFile(
-                                    job_id=job.id,
-                                    file_id=new_file.id,
-                                    status="COMPLETED"
-                                )
-                                local_db.add(job_file)
-                                await local_db.commit()
-
+                                    chat_ref_str = str(getattr(msg, 'chat_id', getattr(msg, 'peer_id', 'tg'))).lstrip("-")
+                                    new_file = await register_processed_file(
+                                        db=local_db,
+                                        user_id=user_id,
+                                        sha256=f_hash,
+                                        filename=clean_name,
+                                        file_size_bytes=fsize,
+                                        mime_type=getattr(msg.file, "mime_type", None) if getattr(msg, "file", None) else None,
+                                        telegram_ref=f"{chat_ref_str}/{msg.id}",
+                                        drive_file_id=drive_id,
+                                        drive_web_link=web_link,
+                                        local_path=target_file_path if job.destination == "DIRECT_DOWNLOAD" else None
+                                    )
+                                    job_file = JobFile(
+                                        job_id=job.id,
+                                        file_id=new_file.id,
+                                        status="COMPLETED"
+                                    )
+                                    local_db.add(job_file)
+                                    await local_db.commit()
+                                    success = True
+                        else:
+                            print(f"[Worker] Archivo no descargado para msg {msg.id}. Registrando como fallido.")
+                    except Exception as exc:
+                        print(f"[Worker] Excepción no controlada procesando msg {msg.id}: {exc}")
+                    finally:
                         async with db_lock:
                             processed_count += 1
                             track_speed["bytes_total"] += fsize
@@ -423,7 +431,7 @@ async def execute_download_job(job_id: int):
                                 "progress": pct,
                                 "speed_mbs": round(speed_mbs, 2),
                                 "eta_seconds": eta_sec,
-                                "current_file": clean_name,
+                                "current_file": clean_name if success else f"{clean_name} (omitido/error)",
                                 "processed_files": processed_count,
                                 "total_files": total_files_count
                             })

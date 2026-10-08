@@ -256,20 +256,66 @@ async function initApp() {
 }
 
 function updateConnectionCards() {
-    // Telegram Status
+    // Telegram Status & Multi-Account Switcher
     const tgBadge = document.getElementById("status-badge-telegram");
     const btnTg = document.getElementById("btn-tg-action");
-    if (currentUser.telegram_connected) {
-        tgBadge.className = "mt-0.5 inline-block status-badge status-connected";
-        tgBadge.innerText = "Conectado ✅";
-        btnTg.innerText = "Desconectar";
-        btnTg.onclick = disconnectTelegram;
-    } else {
-        tgBadge.className = "mt-0.5 inline-block status-badge status-disconnected";
-        tgBadge.innerText = "Desconectado ❌";
-        btnTg.innerText = "Conectar";
-        btnTg.onclick = openTelegramModal;
-    }
+    const tgSelector = document.getElementById("tg-account-selector");
+    const btnAddTg = document.getElementById("btn-tg-add-account");
+    const tgNameBadge = document.getElementById("tg-account-name-badge");
+
+    fetch(`${API_BASE}/telegram/status`, {
+        headers: { "Authorization": `Bearer ${token}` }
+    })
+    .then(r => r.json())
+    .then(tgData => {
+        if (tgData && tgData.connected) {
+            tgBadge.className = "mt-0.5 inline-block status-badge status-connected";
+            tgBadge.innerText = "Conectado ✅";
+            btnTg.innerText = "Desconectar";
+            btnTg.onclick = disconnectTelegram;
+
+            if (tgNameBadge) {
+                tgNameBadge.innerText = `@${tgData.account_name || tgData.phone || 'Cuenta'}`;
+                tgNameBadge.classList.remove("hidden");
+            }
+            if (btnAddTg) btnAddTg.classList.remove("hidden");
+
+            const accounts = tgData.accounts || [];
+            if (tgSelector) {
+                if (accounts.length > 0) {
+                    tgSelector.innerHTML = accounts.map(acc => `
+                        <option value="${acc.id}" ${acc.is_active ? 'selected' : ''}>
+                            ${acc.is_active ? '★ ' : ''}${acc.account_name || acc.phone}
+                        </option>
+                    `).join("");
+                    tgSelector.classList.remove("hidden");
+                } else {
+                    tgSelector.classList.add("hidden");
+                }
+            }
+        } else {
+            tgBadge.className = "mt-0.5 inline-block status-badge status-disconnected";
+            tgBadge.innerText = "Desconectado ❌";
+            btnTg.innerText = "Conectar";
+            btnTg.onclick = () => openTelegramModal(false);
+            if (tgNameBadge) tgNameBadge.classList.add("hidden");
+            if (tgSelector) tgSelector.classList.add("hidden");
+            if (btnAddTg) btnAddTg.classList.add("hidden");
+        }
+    })
+    .catch(() => {
+        if (currentUser.telegram_connected) {
+            tgBadge.className = "mt-0.5 inline-block status-badge status-connected";
+            tgBadge.innerText = "Conectado ✅";
+            btnTg.innerText = "Desconectar";
+            btnTg.onclick = disconnectTelegram;
+        } else {
+            tgBadge.className = "mt-0.5 inline-block status-badge status-disconnected";
+            tgBadge.innerText = "Desconectado ❌";
+            btnTg.innerText = "Conectar";
+            btnTg.onclick = () => openTelegramModal(false);
+        }
+    });
 
     // Drive Status
     const drBadge = document.getElementById("status-badge-drive");
@@ -907,15 +953,43 @@ async function loadDedupStats() {
 // -------------------------------------------------------------
 // MODAL LOGIN TELEGRAM
 // -------------------------------------------------------------
-function openTelegramModal() {
+function openTelegramModal(isAddingNew = false) {
     document.getElementById("modal-telegram").classList.remove("hidden");
     document.getElementById("tg-step-phone").classList.remove("hidden");
     document.getElementById("tg-step-code").classList.add("hidden");
     document.getElementById("tg-modal-status").classList.add("hidden");
+    if (isAddingNew) {
+        document.getElementById("tg-phone-input").value = "";
+        document.getElementById("tg-code-input").value = "";
+        const faBox = document.getElementById("tg-2fa-box");
+        if (faBox) faBox.classList.add("hidden");
+        const faIn = document.getElementById("tg-2fa-input");
+        if (faIn) faIn.value = "";
+    }
 }
 
 function closeTelegramModal() {
     document.getElementById("modal-telegram").classList.add("hidden");
+}
+
+async function switchTelegramAccount(accountId) {
+    if (!accountId) return;
+    try {
+        const res = await fetch(`${API_BASE}/telegram/accounts/switch/${accountId}`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Error al cambiar de cuenta");
+        
+        // Refrescar estado y tarjetas
+        updateConnectionCards();
+        alert(`⚡ ${data.message || "Cuenta activa cambiada"}`);
+    } catch (e) {
+        alert(e.message || "Error al cambiar de cuenta");
+    }
 }
 
 async function submitTelegramPhone() {
@@ -986,7 +1060,7 @@ async function submitTelegramCode() {
 }
 
 async function disconnectTelegram() {
-    if (!confirm("¿Deseas desconectar tu cuenta de Telegram?")) return;
+    if (!confirm("¿Deseas desconectar la cuenta activa de Telegram? Las demás cuentas permanecerán guardadas.")) return;
     await fetch(`${API_BASE}/telegram/disconnect`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${token}` }
