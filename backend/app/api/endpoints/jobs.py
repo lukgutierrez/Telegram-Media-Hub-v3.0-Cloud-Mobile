@@ -4,6 +4,8 @@ import time
 import zipfile
 import mimetypes
 import asyncio
+import urllib.parse
+import re
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query, Header
 from fastapi.responses import FileResponse
@@ -400,13 +402,15 @@ async def download_file_direct(
 
     mime_type, _ = mimetypes.guess_type(f.filename)
     clean_filename = f.filename.split("/")[-1].split("\\")[-1]
+    ascii_filename = re.sub(r'[^\x20-\x7e]', '_', clean_filename)
+    encoded_filename = urllib.parse.quote(clean_filename)
 
     return FileResponse(
         path=f.local_path,
-        filename=clean_filename,
+        filename=ascii_filename,
         media_type=mime_type or f.mime_type or "application/octet-stream",
         headers={
-            "Content-Disposition": f'attachment; filename="{clean_filename}"'
+            "Content-Disposition": f"attachment; filename=\"{ascii_filename}\"; filename*=UTF-8''{encoded_filename}"
         }
     )
 
@@ -481,12 +485,15 @@ async def download_job_zip(
 
             zip_file.write(f.local_path, arcname=arcname)
 
+    ascii_zip = re.sub(r'[^\x20-\x7e]', '_', zip_filename)
+    encoded_zip = urllib.parse.quote(zip_filename)
+
     return FileResponse(
         path=temp_zip_path,
-        filename=zip_filename,
+        filename=ascii_zip,
         media_type="application/zip",
         headers={
-            "Content-Disposition": f'attachment; filename="{zip_filename}"'
+            "Content-Disposition": f"attachment; filename=\"{ascii_zip}\"; filename*=UTF-8''{encoded_zip}"
         }
     )
 
