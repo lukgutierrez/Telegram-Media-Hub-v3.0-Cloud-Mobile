@@ -497,4 +497,56 @@ async def download_job_zip(
         }
     )
 
+@router.post("/cleanup-temp-storage")
+async def cleanup_temp_storage(
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Limpia todos los archivos temporales, cachés y ZIPs residuales para liberar espacio en disco inmediatamente."""
+    import shutil
+    freed_bytes = 0
+    files_removed = 0
+
+    # 1. Limpiar carpeta TEMP_DIR
+    temp_dir = settings.TEMP_DIR
+    if os.path.exists(temp_dir):
+        for fname in os.listdir(temp_dir):
+            fpath = os.path.join(temp_dir, fname)
+            try:
+                if os.path.isfile(fpath) or os.path.islink(fpath):
+                    sz = os.path.getsize(fpath)
+                    os.remove(fpath)
+                    freed_bytes += sz
+                    files_removed += 1
+            except Exception:
+                pass
+
+    # 2. Limpiar /tmp de archivos TMH o zips
+    for tmp_dir in ["/tmp"]:
+        if os.path.exists(tmp_dir):
+            for fname in os.listdir(tmp_dir):
+                if fname.startswith("TMH_") or fname.endswith(".zip") or fname.endswith(".tmp"):
+                    fpath = os.path.join(tmp_dir, fname)
+                    try:
+                        sz = os.path.getsize(fpath)
+                        os.remove(fpath)
+                        freed_bytes += sz
+                        files_removed += 1
+                    except Exception:
+                        pass
+
+    total, used, free = shutil.disk_usage(temp_dir if os.path.exists(temp_dir) else "/")
+
+    freed_mb = round(freed_bytes / (1024 * 1024), 2)
+    free_gb = round(free / (1024 * 1024 * 1024), 2)
+
+    return {
+        "status": "ok",
+        "freed_mb": freed_mb,
+        "free_gb": free_gb,
+        "files_removed": files_removed,
+        "message": f"Se eliminaron {files_removed} archivos ({freed_mb} MB) de temporales y caché. Espacio libre actual: {free_gb} GB."
+    }
+
+
 

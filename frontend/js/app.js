@@ -1346,5 +1346,39 @@ async function startTelegramSearchBatchJob(items) {
     }
 }
 
+async function cleanDiskAndCache() {
+    if (!confirm("¿Deseas eliminar todos los archivos temporales y cachés residuales para liberar espacio en disco?")) {
+        return;
+    }
+
+    const btnNav = document.getElementById("btn-clean-disk-nav");
+    if (btnNav) {
+        btnNav.disabled = true;
+        btnNav.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Limpiando...';
+    }
+
+    try {
+        const res = await fetch(`${API_BASE}/jobs/cleanup-temp-storage`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${token}`
+            }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Error al limpiar almacenamiento");
+
+        alert(`🧹 ¡Limpieza exitosa!\n\n${data.message}`);
+        loadDedupStats();
+    } catch (e) {
+        alert(e.message || "Error al limpiar temporales y caché");
+    } finally {
+        if (btnNav) {
+            btnNav.disabled = false;
+            btnNav.innerHTML = '<i class="fa-solid fa-broom text-xs"></i> <span class="hidden md:inline">Limpiar Espacio</span>';
+        }
+    }
+}
+
+
 
 
