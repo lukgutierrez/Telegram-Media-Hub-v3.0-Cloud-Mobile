@@ -19,6 +19,35 @@ function showAuthView() {
     document.getElementById("view-auth").classList.remove("hidden");
     document.getElementById("view-dashboard").classList.add("hidden");
     document.getElementById("nav-user-section").classList.add("hidden");
+    const emailInput = document.getElementById("auth-email");
+    if (emailInput && !emailInput.value) {
+        emailInput.value = "lucianogutierrezagustin@gmail.com";
+    }
+}
+
+async function handleQuickAccess() {
+    const btn = document.getElementById("btn-quick-access");
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-slate-950"></i> Ingresando...';
+    }
+    try {
+        const res = await fetch(`${API_BASE}/auth/quick-access`, {
+            method: "POST"
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || "Error en acceso rápido");
+
+        token = data.access_token;
+        localStorage.setItem("tmh_token", token);
+        initApp();
+    } catch (e) {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-bolt text-slate-950 text-base"></i> ⚡ ENTRAR DIRECTO (1 Clic)';
+        }
+        alert(e.message || "Error al ingresar automáticamente");
+    }
 }
 
 function showDashboardView() {

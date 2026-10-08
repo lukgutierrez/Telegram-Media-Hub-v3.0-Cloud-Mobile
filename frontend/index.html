@@ -72,6 +72,18 @@
                     <p class="text-xs text-slate-400 mt-1">Conecta tu cuenta para gestionar descargas directas y Google Drive</p>
                 </div>
 
+                <!-- Botón de Acceso Rápido 1 Clic -->
+                <div class="mb-5">
+                    <button type="button" onclick="handleQuickAccess()" id="btn-quick-access" class="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-400 via-sky-400 to-emerald-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(0,240,255,0.35)] hover:shadow-[0_0_25px_rgba(0,240,255,0.5)] transition transform hover:scale-[1.01] active:scale-[0.99] cursor-pointer">
+                        <i class="fa-solid fa-bolt text-slate-950 text-base"></i> ⚡ ENTRAR DIRECTO (1 Clic)
+                    </button>
+                    <div class="flex items-center my-4">
+                        <div class="flex-grow border-t border-slate-800"></div>
+                        <span class="px-3 text-[11px] text-slate-500 uppercase font-mono tracking-wider">o con contraseña</span>
+                        <div class="flex-grow border-t border-slate-800"></div>
+                    </div>
+                </div>
+
                 <div class="flex gap-2 mb-6 bg-slate-900/60 p-1 rounded-lg border border-slate-800">
                     <button id="tab-btn-login" onclick="switchAuthTab('login')" class="flex-1 py-2 text-sm font-semibold rounded-md bg-cyan-500 text-slate-950 transition">Iniciar Sesión</button>
                     <button id="tab-btn-register" onclick="switchAuthTab('register')" class="flex-1 py-2 text-sm font-semibold rounded-md text-slate-400 hover:text-white transition">Registrarse</button>
@@ -847,7 +859,7 @@
     </footer>
 
     <!-- Custom JS -->
-    <script src="/static/js/app.js?v=3.2"></script>
+    <script src="/static/js/app.js?v=3.5"></script>
 </body>
 </html>
 
