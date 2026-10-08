@@ -417,6 +417,7 @@ async def download_file_direct(
 @router.get("/{job_id}/download-zip")
 async def download_job_zip(
     job_id: int,
+    background_tasks: BackgroundTasks,
     token: Optional[str] = Query(None),
     authorization: Optional[str] = Header(None),
     db: AsyncSession = Depends(get_db)
@@ -487,6 +488,9 @@ async def download_job_zip(
 
     ascii_zip = re.sub(r'[^\x20-\x7e]', '_', zip_filename)
     encoded_zip = urllib.parse.quote(zip_filename)
+
+    # Limpiar automáticamente el archivo ZIP temporal al terminar la transmisión
+    background_tasks.add_task(os.remove, temp_zip_path)
 
     return FileResponse(
         path=temp_zip_path,

@@ -268,8 +268,12 @@ async function initApp() {
         const res = await fetch(`${API_BASE}/auth/me`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
-        if (!res.ok) {
+        if (res.status === 401) {
             logout();
+            return;
+        }
+        if (!res.ok) {
+            console.warn("Error del servidor al validar sesión:", res.status);
             return;
         }
         currentUser = await res.json();
@@ -280,7 +284,7 @@ async function initApp() {
         loadJobsHistory();
         loadDedupStats();
     } catch (err) {
-        logout();
+        console.warn("Fallo de conexión o red temporal:", err);
     }
 }
 
@@ -751,10 +755,18 @@ async function loadJobFiles(jobId) {
         document.getElementById("job-files-count-label").innerText = files.length;
 
         const hasAnyLocal = files && files.some(f => f.has_local_download);
+        const totalSizeMb = files.filter(f => f.has_local_download).reduce((sum, f) => sum + (f.size_mb || 0), 0);
         if (zipBtn) {
             if (hasAnyLocal) {
                 zipBtn.href = `${API_BASE}/jobs/${jobId}/download-zip?token=${token}`;
                 zipBtn.classList.remove("hidden");
+                if (totalSizeMb > 1500) {
+                    zipBtn.title = "Aviso: Los archivos pesados (>1 GB) se recomiendan descargar individualmente con el botón 'Descargar' para evitar el límite de 100 segundos de Cloudflare.";
+                    zipBtn.innerHTML = `<i class="fa-solid fa-file-zipper"></i> Descargar Todo en ZIP (${Math.round(totalSizeMb)} MB) <span class="text-[10px] text-amber-300 font-normal">⚠️ Pesado: preferir descarga directa</span>`;
+                } else {
+                    zipBtn.title = "Descargar todos los archivos organizados en ZIP";
+                    zipBtn.innerHTML = `<i class="fa-solid fa-file-zipper"></i> Descargar Todo en ZIP Organizado (.zip)`;
+                }
             } else {
                 zipBtn.classList.add("hidden");
             }
