@@ -284,6 +284,8 @@ async def execute_download_job(job_id: int):
             db_lock = asyncio.Lock()
             processed_count = 0
             track_speed = {"bytes_total": 0, "start_time": time.time()}
+            active_streams: Dict[int, Dict[str, Any]] = {}
+            active_streams_lock = asyncio.Lock()
 
             async def process_single_item(idx, msg, topic_name):
                 nonlocal processed_count
@@ -314,15 +316,33 @@ async def execute_download_job(job_id: int):
                     else:
                         target_file_path = os.path.join(settings.TEMP_DIR, f"{job.id}_{clean_name}")
 
+                    # Registrar stream activo individual
+                    file_exp_bytes = getattr(msg.file, 'size', 0) if getattr(msg, 'file', None) else 0
+                    async with active_streams_lock:
+                        active_streams[msg.id] = {
+                            "id": msg.id,
+                            "name": clean_name,
+                            "cur_bytes": 0,
+                            "total_bytes": file_exp_bytes,
+                            "progress": 0.0
+                        }
+
                     # Descargar archivo multimedia con Turbo Fast Download
                     last_broadcast_time = time.time()
                     def in_flight_progress(cur, tot):
                         nonlocal last_broadcast_time
                         now = time.time()
-                        if (now - last_broadcast_time > 0.4) or cur == tot:
+                        
+                        # Actualizar progreso específico de este archivo
+                        if msg.id in active_streams:
+                            active_streams[msg.id]["cur_bytes"] = cur
+                            active_streams[msg.id]["total_bytes"] = tot
+                            active_streams[msg.id]["progress"] = round((cur / tot) * 100, 1) if tot > 0 else 0.0
+
+                        if (now - last_broadcast_time > 0.35) or cur == tot:
                             last_broadcast_time = now
                             dt_live = now - track_speed["start_time"]
-                            bytes_live = track_speed["bytes_total"] + cur
+                            bytes_live = track_speed["bytes_total"] + sum(s.get("cur_bytes", 0) for s in active_streams.values())
                             speed_live = (bytes_live / (1024 * 1024)) / dt_live if dt_live > 0 else 0.0
                             
                             # Porcentaje total ponderado
@@ -339,7 +359,8 @@ async def execute_download_job(job_id: int):
                                 "eta_seconds": int(((tot - cur) / (speed_live * 1024 * 1024))) if speed_live > 0 and tot > cur else 0,
                                 "current_file": clean_name,
                                 "processed_files": processed_count,
-                                "total_files": total_files_count
+                                "total_files": total_files_count,
+                                "active_files": list(active_streams.values())
                             }))
 
                     success = False
@@ -413,6 +434,9 @@ async def execute_download_job(job_id: int):
                     except Exception as exc:
                         print(f"[Worker] Excepción no controlada procesando msg {msg.id}: {exc}")
                     finally:
+                        async with active_streams_lock:
+                            active_streams.pop(msg.id, None)
+
                         async with db_lock:
                             processed_count += 1
                             track_speed["bytes_total"] += fsize
@@ -433,7 +457,8 @@ async def execute_download_job(job_id: int):
                                 "eta_seconds": eta_sec,
                                 "current_file": clean_name if success else f"{clean_name} (omitido/error)",
                                 "processed_files": processed_count,
-                                "total_files": total_files_count
+                                "total_files": total_files_count,
+                                "active_files": list(active_streams.values())
                             })
 
             await asyncio.gather(*[process_single_item(i, m, t) for i, (m, t) in enumerate(items_to_download, start=1)])
@@ -453,7 +478,8 @@ async def execute_download_job(job_id: int):
                 "processed_files": total_files_count,
                 "total_files": total_files_count,
                 "speed_mbs": 0.0,
-                "eta_seconds": 0
+                "eta_seconds": 0,
+                "active_files": []
             })
 
         except Exception as e:

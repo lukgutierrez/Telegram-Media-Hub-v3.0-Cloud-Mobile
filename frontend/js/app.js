@@ -418,6 +418,41 @@ function handleLiveProgress(data) {
         document.getElementById("active-job-current-file").innerText = `📄 ${data.current_file}`;
     }
 
+    // Renderizado de líneas de progreso individuales para descargas paralelas
+    const multiBox = document.getElementById("active-multi-downloads-container");
+    const multiList = document.getElementById("active-multi-downloads-list");
+    const multiCount = document.getElementById("active-multi-downloads-count");
+
+    if (data.active_files && data.active_files.length > 0) {
+        if (multiBox) multiBox.classList.remove("hidden");
+        if (multiCount) multiCount.innerText = `${data.active_files.length} activa${data.active_files.length > 1 ? 's' : ''}`;
+        if (multiList) {
+            multiList.innerHTML = data.active_files.map(f => {
+                const curMb = ((f.cur_bytes || 0) / (1024 * 1024)).toFixed(1);
+                const totMb = ((f.total_bytes || 0) / (1024 * 1024)).toFixed(1);
+                const pct = Math.min(100, Math.max(0, f.progress || 0));
+                return `
+                    <div class="p-2.5 rounded-lg bg-slate-950/90 border border-slate-800 flex flex-col gap-1.5 shadow-sm">
+                        <div class="flex items-center justify-between text-xs gap-2">
+                            <span class="font-mono text-slate-200 truncate flex-1" title="${f.name}">
+                                <i class="fa-solid fa-cloud-arrow-down text-cyan-400 mr-1.5"></i>${f.name}
+                            </span>
+                            <div class="flex items-center gap-2 font-mono text-[11px] flex-shrink-0">
+                                <span class="text-slate-400">${curMb} / ${totMb > 0 ? totMb + ' MB' : '-- MB'}</span>
+                                <span class="font-bold text-[#00FF41] w-12 text-right">${pct}%</span>
+                            </div>
+                        </div>
+                        <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden border border-slate-800/80">
+                            <div class="bg-gradient-to-r from-cyan-400 via-sky-400 to-[#00FF41] h-full rounded-full transition-all duration-200" style="width: ${pct}%;"></div>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+        }
+    } else if (data.status === "COMPLETED" || data.status === "FAILED" || data.status === "CANCELLED") {
+        if (multiBox) multiBox.classList.add("hidden");
+    }
+
     if (data.status === "COMPLETED") {
         document.getElementById("active-job-current-file").innerText = `🎉 ¡Descarga completada con éxito! Revisa los archivos abajo.`;
         loadJobsHistory();

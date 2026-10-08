@@ -523,6 +523,19 @@
                     <div id="active-job-current-file" class="text-xs font-mono text-slate-300 truncate bg-slate-950 p-2.5 rounded border border-slate-800">
                         📄 Esperando archivo...
                     </div>
+
+                    <!-- LÍNEAS DE PROGRESO INDIVIDUALES POR ARCHIVO (DESCARGA MULTIPLE) -->
+                    <div id="active-multi-downloads-container" class="flex flex-col gap-2.5 mt-1 pt-3 border-t border-slate-800/80 hidden">
+                        <div class="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-cyan-400">
+                            <span class="flex items-center gap-1.5">
+                                <i class="fa-solid fa-layer-group text-cyan-400"></i> Descargas en Paralelo Activas
+                            </span>
+                            <span id="active-multi-downloads-count" class="font-mono text-slate-400 text-[10px] bg-slate-950 px-2 py-0.5 rounded border border-slate-800">0 activas</span>
+                        </div>
+                        <div id="active-multi-downloads-list" class="flex flex-col gap-2 max-h-64 overflow-y-auto pr-1">
+                            <!-- Items dinámicos con barra individual por archivo -->
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Archivos de la Tarea Activa / Seleccionada -->
@@ -859,7 +872,7 @@
     </footer>
 
     <!-- Custom JS -->
-    <script src="/static/js/app.js?v=3.5"></script>
+    <script src="/static/js/app.js?v=3.6"></script>
 </body>
 </html>
 
