@@ -283,6 +283,11 @@ async function initApp() {
         initWebSocket();
         loadJobsHistory();
         loadDedupStats();
+
+        const savedTab = sessionStorage.getItem("active_tab");
+        if (savedTab) {
+            switchTab(savedTab);
+        }
     } catch (err) {
         console.warn("Fallo de conexión o red temporal:", err);
     }
@@ -469,6 +474,7 @@ function handleLiveProgress(data) {
 }
 
 function switchTab(tabId) {
+    sessionStorage.setItem("active_tab", tabId);
     const tabs = ["downloader", "forum", "jobs", "osint", "dedup", "search"];
     tabs.forEach(t => {
         const content = document.getElementById(`tab-content-${t}`);
@@ -490,6 +496,8 @@ function switchTab(tabId) {
     } else if (tabId === "search") {
         const inp = document.getElementById("input-tg-global-search");
         if (inp) inp.focus();
+    } else if (tabId === "osint") {
+        loadMyChats();
     }
 }
 
@@ -1051,6 +1059,9 @@ function closeTelegramModal() {
 async function switchTelegramAccount(accountId) {
     if (!accountId) return;
     try {
+        const selector = document.getElementById("tg-account-selector");
+        if (selector) selector.disabled = true;
+
         const res = await fetch(`${API_BASE}/telegram/accounts/switch/${accountId}`, {
             method: "POST",
             headers: {
@@ -1060,11 +1071,12 @@ async function switchTelegramAccount(accountId) {
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || "Error al cambiar de cuenta");
         
-        // Refrescar estado y tarjetas
-        updateConnectionCards();
-        alert(`⚡ ${data.message || "Cuenta activa cambiada"}`);
+        // Recargar automáticamente la aplicación (como F5) para inicializar la nueva cuenta
+        window.location.reload();
     } catch (e) {
         alert(e.message || "Error al cambiar de cuenta");
+        const selector = document.getElementById("tg-account-selector");
+        if (selector) selector.disabled = false;
     }
 }
 

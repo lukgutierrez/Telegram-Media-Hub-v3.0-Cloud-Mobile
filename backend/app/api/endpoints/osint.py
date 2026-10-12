@@ -45,16 +45,23 @@ class RecentMessagesSchema(BaseModel):
     target: str
     limit: int = 15
 
+async def get_active_telegram_session(user_id: int, db: AsyncSession) -> Optional[TelegramSession]:
+    """Obtiene la cuenta activa de Telegram del usuario (o la más reciente conectada)."""
+    stmt = select(TelegramSession).where(
+        TelegramSession.user_id == user_id,
+        TelegramSession.status == "CONNECTED"
+    ).order_by(TelegramSession.is_active.desc(), TelegramSession.id.desc())
+    res = await db.execute(stmt)
+    return res.scalars().first()
+
 @router.get("/my-chats")
 async def get_my_chats(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
     """Lista todos los grupos, canales, supergrupos y foros donde está el usuario con IDs negativos (-100...)."""
-    stmt = select(TelegramSession).where(TelegramSession.user_id == user.id)
-    res = await db.execute(stmt)
-    tg = res.scalars().first()
-    if not tg or not tg.encrypted_session_string or tg.status != "CONNECTED":
+    tg = await get_active_telegram_session(user.id, db)
+    if not tg or not tg.encrypted_session_string:
         raise HTTPException(status_code=400, detail="Conecta tu cuenta de Telegram para listar tus chats.")
 
     client = get_user_telegram_client(tg.encrypted_session_string)
@@ -74,10 +81,8 @@ async def inspect_target(
     db: AsyncSession = Depends(get_db)
 ):
     """Inspección técnica detallada de una entidad (/info)."""
-    stmt = select(TelegramSession).where(TelegramSession.user_id == user.id)
-    res = await db.execute(stmt)
-    tg = res.scalars().first()
-    if not tg or not tg.encrypted_session_string or tg.status != "CONNECTED":
+    tg = await get_active_telegram_session(user.id, db)
+    if not tg or not tg.encrypted_session_string:
         raise HTTPException(status_code=400, detail="Conecta tu cuenta de Telegram para realizar consultas OSINT.")
 
     client = get_user_telegram_client(tg.encrypted_session_string)
@@ -125,10 +130,8 @@ async def get_forum_topics(
     db: AsyncSession = Depends(get_db)
 ):
     """Lista los topics de un foro."""
-    stmt = select(TelegramSession).where(TelegramSession.user_id == user.id)
-    res = await db.execute(stmt)
-    tg = res.scalars().first()
-    if not tg or not tg.encrypted_session_string or tg.status != "CONNECTED":
+    tg = await get_active_telegram_session(user.id, db)
+    if not tg or not tg.encrypted_session_string:
         raise HTTPException(status_code=400, detail="Conecta tu cuenta de Telegram.")
 
     client = get_user_telegram_client(tg.encrypted_session_string)
@@ -164,10 +167,8 @@ async def pre_analyze_topics(
     db: AsyncSession = Depends(get_db)
 ):
     """Pre-análisis detallado de todos los topics (fotos, videos, docs, MB, ETA)."""
-    stmt = select(TelegramSession).where(TelegramSession.user_id == user.id)
-    res = await db.execute(stmt)
-    tg = res.scalars().first()
-    if not tg or not tg.encrypted_session_string or tg.status != "CONNECTED":
+    tg = await get_active_telegram_session(user.id, db)
+    if not tg or not tg.encrypted_session_string:
         raise HTTPException(status_code=400, detail="Conecta tu cuenta de Telegram.")
 
     client = get_user_telegram_client(tg.encrypted_session_string)
@@ -196,10 +197,8 @@ async def get_channel_stats(
     db: AsyncSession = Depends(get_db)
 ):
     """Estadísticas avanzadas, horas pico, días activos y desglose multimedia (/stats)."""
-    stmt = select(TelegramSession).where(TelegramSession.user_id == user.id)
-    res = await db.execute(stmt)
-    tg = res.scalars().first()
-    if not tg or not tg.encrypted_session_string or tg.status != "CONNECTED":
+    tg = await get_active_telegram_session(user.id, db)
+    if not tg or not tg.encrypted_session_string:
         raise HTTPException(status_code=400, detail="Conecta tu cuenta de Telegram.")
 
     client = get_user_telegram_client(tg.encrypted_session_string)
@@ -223,10 +222,8 @@ async def search_keywords(
     db: AsyncSession = Depends(get_db)
 ):
     """Buscador de mensajes por palabra clave en un canal o grupo."""
-    stmt = select(TelegramSession).where(TelegramSession.user_id == user.id)
-    res = await db.execute(stmt)
-    tg = res.scalars().first()
-    if not tg or not tg.encrypted_session_string or tg.status != "CONNECTED":
+    tg = await get_active_telegram_session(user.id, db)
+    if not tg or not tg.encrypted_session_string:
         raise HTTPException(status_code=400, detail="Conecta tu cuenta de Telegram.")
 
     client = get_user_telegram_client(tg.encrypted_session_string)
@@ -250,10 +247,8 @@ async def get_recent_messages(
     db: AsyncSession = Depends(get_db)
 ):
     """Obtiene los mensajes más recientes (/recent)."""
-    stmt = select(TelegramSession).where(TelegramSession.user_id == user.id)
-    res = await db.execute(stmt)
-    tg = res.scalars().first()
-    if not tg or not tg.encrypted_session_string or tg.status != "CONNECTED":
+    tg = await get_active_telegram_session(user.id, db)
+    if not tg or not tg.encrypted_session_string:
         raise HTTPException(status_code=400, detail="Conecta tu cuenta de Telegram.")
 
     client = get_user_telegram_client(tg.encrypted_session_string)
@@ -289,10 +284,8 @@ async def telegram_global_search_endpoint(
     db: AsyncSession = Depends(get_db)
 ):
     """Busca en vivo en todos los chats, canales y grupos de Telegram del usuario."""
-    stmt = select(TelegramSession).where(TelegramSession.user_id == user.id)
-    res = await db.execute(stmt)
-    tg = res.scalars().first()
-    if not tg or not tg.encrypted_session_string or tg.status != "CONNECTED":
+    tg = await get_active_telegram_session(user.id, db)
+    if not tg or not tg.encrypted_session_string:
         raise HTTPException(status_code=400, detail="Conecta tu cuenta de Telegram para buscar en vivo.")
 
     if not payload.query or not payload.query.strip():
@@ -373,10 +366,8 @@ async def download_single_telegram_media(
     if not user:
         raise HTTPException(status_code=401, detail="Token no válido.")
 
-    stmt = select(TelegramSession).where(TelegramSession.user_id == user.id)
-    res = await db.execute(stmt)
-    tg = res.scalars().first()
-    if not tg or not tg.encrypted_session_string or tg.status != "CONNECTED":
+    tg = await get_active_telegram_session(user.id, db)
+    if not tg or not tg.encrypted_session_string:
         raise HTTPException(status_code=400, detail="Telegram no conectado.")
 
     client = get_user_telegram_client(tg.encrypted_session_string)

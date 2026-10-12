@@ -105,7 +105,7 @@ async def quick_access(db: AsyncSession = Depends(get_db)):
 
 @router.get("/me", response_model=UserResponseSchema)
 async def get_me(user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    stmt_tg = select(TelegramSession).where(TelegramSession.user_id == user.id)
+    stmt_tg = select(TelegramSession).where(TelegramSession.user_id == user.id).order_by(TelegramSession.is_active.desc(), TelegramSession.id.desc())
     res_tg = await db.execute(stmt_tg)
     tg = res_tg.scalars().first()
     
