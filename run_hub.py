@@ -11,43 +11,34 @@ BACKEND_DIR = os.path.join(ROOT_DIR, "backend")
 CLOUDFLARED_EXE = os.path.join(ROOT_DIR, "cloudflared.exe")
 TUNNEL_LOG = os.path.join(ROOT_DIR, "tunnel.log")
 
-print("=" * 65)
-print("  TELEGRAM MEDIA HUB v3.0 - SERVIDOR LOCAL & ACCESO CELULAR")
+print("=" * 70)
+print("  TELEGRAM MEDIA HUB v3.0 - ACCESO CELULAR Y WEB")
 print("  Creador: @lukgtz (Luciano Gutierrez)")
-print("=" * 65)
+print("=" * 70)
 
-print("\n[1/3] Limpiando túneles anteriores...")
-subprocess.run(["taskkill", "/F", "/IM", "cloudflared.exe"], capture_output=True, text=True)
+# Limpiar procesos viejos
+subprocess.run(["taskkill", "/F", "/IM", "cloudflared.exe"], capture_output=True)
+subprocess.run(["taskkill", "/F", "/IM", "uvicorn.exe"], capture_output=True)
+time.sleep(1)
+
 if os.path.exists(TUNNEL_LOG):
     try:
         os.remove(TUNNEL_LOG)
     except Exception:
         pass
 
-# Verificar si el backend ya está corriendo en el puerto 8000
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-backend_running = False
-try:
-    s.connect(("127.0.0.1", 8000))
-    backend_running = True
-    s.close()
-except Exception:
-    backend_running = False
+# Iniciar Backend
+print("\n[1/2] Iniciando Servidor Backend Turbo...")
+api_proc = subprocess.Popen(
+    [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"],
+    cwd=BACKEND_DIR,
+    stdout=subprocess.DEVNULL,
+    stderr=subprocess.DEVNULL
+)
+time.sleep(2)
 
-api_proc = None
-if not backend_running:
-    print("[2/3] Iniciando Servidor FastAPI Turbo...")
-    api_proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"],
-        cwd=BACKEND_DIR,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
-    )
-    time.sleep(2)
-else:
-    print("[2/3] Servidor FastAPI Turbo ya está activo en el puerto 8000.")
-
-print("[3/3] Conectando con Cloudflare Tunnel para tu celular...")
+# Iniciar Cloudflare
+print("[2/2] Conectando Tunel Seguro HTTPS con Cloudflare...")
 tunnel_proc = subprocess.Popen(
     [CLOUDFLARED_EXE, "tunnel", "--no-autoupdate", "--logfile", TUNNEL_LOG, "--url", "http://127.0.0.1:8000"],
     stdout=subprocess.DEVNULL,
@@ -56,6 +47,7 @@ tunnel_proc = subprocess.Popen(
 
 tunnel_url = None
 start_time = time.time()
+print("\nObteniendo enlace para tu celular...")
 
 while time.time() - start_time < 30:
     if os.path.exists(TUNNEL_LOG):
@@ -70,32 +62,41 @@ while time.time() - start_time < 30:
             pass
     time.sleep(1)
 
-print("\n" + "=" * 65)
+os.system("cls" if os.name == "nt" else "clear")
+print("=" * 70)
+print("  TELEGRAM MEDIA HUB v3.0 - ¡CONECTADO CON EXITO!")
+print("  Creador: @lukgtz (Luciano Gutierrez)")
+print("=" * 70)
+print()
 if tunnel_url:
-    print("  ¡TODO LISTO Y FUNCIONANDO EN TU CELULAR Y COMPUTADORA!")
-    print(f"\n  👉 TU ENLACE PARA EL CELULAR:\n     {tunnel_url}\n")
-    print(f"  👉 ENLACE EN TU COMPUTADORA:\n     http://localhost:8000\n")
-    print("=" * 65)
-    print("\n  [Abriendo el enlace en tu navegador automáticamente...]")
+    print("  👉 TU ENLACE PARA EL CELULAR:")
+    print()
+    print(f"     {tunnel_url}")
+    print()
+    print("  👉 ENLACE EN TU COMPUTADORA:")
+    print("     http://localhost:8000")
+    print()
+    print("=" * 70)
+    print("\n  [Abriendo el enlace en tu navegador automaticamente...]")
     webbrowser.open(tunnel_url)
 else:
-    print("  Servidor iniciado localmente:")
-    print("  👉 http://localhost:8000")
-    print("=" * 65)
+    print("  👉 ENLACE EN TU COMPUTADORA:")
+    print("     http://localhost:8000")
+    print("=" * 70)
     webbrowser.open("http://localhost:8000")
 
-print("\n⚠️ NO CIERRES ESTA VENTANA mientras estés usando el bot.")
-print("Para apagar el bot cuando termines, simplemente cierra esta ventana.\n")
+print("\n  * NO CIERRES ESTA VENTANA mientras estes usando el bot en tu celular.")
+print("  Presiona ENTER o cierra esta ventana cuando quieras apagar todo.\n")
 
 try:
-    while True:
-        time.sleep(1)
-        if tunnel_proc.poll() is not None:
-            break
-except KeyboardInterrupt:
+    input("  >> ")
+except Exception:
     pass
-finally:
-    print("\nApagando túnel...")
-    tunnel_proc.terminate()
-    if api_proc:
-        api_proc.terminate()
+
+print("\nApagando servidores...")
+tunnel_proc.terminate()
+api_proc.terminate()
+subprocess.run(["taskkill", "/F", "/IM", "cloudflared.exe"], capture_output=True)
+subprocess.run(["taskkill", "/F", "/IM", "uvicorn.exe"], capture_output=True)
+print("Listo.")
+time.sleep(1)
