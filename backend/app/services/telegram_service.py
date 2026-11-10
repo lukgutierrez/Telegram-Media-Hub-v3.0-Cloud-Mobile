@@ -301,11 +301,21 @@ async def list_user_dialogs(client: TelegramClient) -> List[Dict[str, Any]]:
         username = f"@{entity.username}" if getattr(entity, "username", None) else "Privado"
         miembros_cnt = getattr(entity, "participants_count", None)
 
+        # Generar o extraer enlace de invitación o enlace público
+        share_link = ""
+        if getattr(entity, "username", None):
+            share_link = f"https://t.me/{entity.username}"
+        elif isinstance(entity, Channel):
+            share_link = f"https://t.me/c/{chat_id}/1"
+        elif isinstance(entity, Chat):
+            share_link = f"https://t.me/c/{chat_id}/1"
+
         chats.append({
             "title": title,
             "id": chat_id_fmt,
             "type": tipo,
             "username": username,
+            "link": share_link,
             "members": miembros_cnt if miembros_cnt is not None else "N/A",
             "is_forum": bool(isinstance(entity, Channel) and getattr(entity, "forum", False))
         })

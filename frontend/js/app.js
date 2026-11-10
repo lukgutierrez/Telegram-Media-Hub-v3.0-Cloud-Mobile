@@ -891,13 +891,17 @@ async function loadMyChats() {
 
         tbody.innerHTML = chats.map(c => `
             <tr>
-                <td class="font-bold text-white">${c.title}</td>
+                <td class="font-bold text-white">
+                    <div>${c.title}</div>
+                    ${c.link ? `<a href="${c.link}" target="_blank" class="text-[11px] text-cyan-400/80 hover:text-cyan-300 hover:underline flex items-center gap-1 mt-0.5"><i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i> ${c.link}</a>` : ''}
+                </td>
                 <td class="font-mono text-cyan-400 font-bold">${c.id}</td>
                 <td><span class="px-2 py-0.5 rounded text-[11px] font-semibold ${c.is_forum ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-slate-800 text-slate-300'}">${c.type}</span></td>
                 <td class="font-mono text-xs text-slate-400">${c.username}</td>
                 <td class="font-mono text-xs text-slate-300">${c.members}</td>
                 <td class="text-right">
                     <div class="flex items-center justify-end gap-1.5">
+                        ${c.link ? `<button onclick="copyGroupLink('${c.link}', '${c.title.replace(/'/g, "\\'")}')" class="px-2 py-1 rounded bg-blue-600/30 hover:bg-blue-600/50 text-xs text-blue-300 font-bold flex items-center gap-1" title="Copiar enlace para compartir"><i class="fa-solid fa-share-nodes"></i> Link</button>` : ''}
                         <button onclick="navigator.clipboard.writeText('${c.id}'); alert('ID ${c.id} copiado');" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs text-slate-300" title="Copiar ID"><i class="fa-solid fa-copy"></i></button>
                         <button onclick="useTargetInDownloader('${c.id}', ${c.is_forum})" class="px-2 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 text-xs text-cyan-300 font-bold">Usar</button>
                     </div>
@@ -908,6 +912,18 @@ async function loadMyChats() {
     } catch (e) {
         tbody.innerHTML = `<tr><td colspan="6" class="text-center text-red-400 py-4">Error de conexión al cargar grupos.</td></tr>`;
     }
+}
+
+function copyGroupLink(link, title) {
+    if (!link) {
+        alert("Este grupo no tiene enlace público directo.");
+        return;
+    }
+    navigator.clipboard.writeText(link).then(() => {
+        alert(`¡Enlace copiado al portapapeles!\n\n${title}\n${link}`);
+    }).catch(() => {
+        prompt("Copia el enlace manualmente:", link);
+    });
 }
 
 function useTargetInDownloader(targetId, isForum) {
