@@ -7,7 +7,20 @@ let currentAuthMode = "login";
 let activeJobId = null;
 let currentTopicsList = [];
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
+    if (!token) {
+        try {
+            const res = await fetch(`${API_BASE}/auth/quick-access`, { method: "POST" });
+            const data = await res.json();
+            if (data.access_token) {
+                token = data.access_token;
+                localStorage.setItem("tmh_token", token);
+            }
+        } catch (e) {
+            console.warn("Auto-login quick access:", e);
+        }
+    }
+
     if (token) {
         initApp();
     } else {
@@ -265,12 +278,23 @@ function logout() {
 
 async function initApp() {
     try {
-        const res = await fetch(`${API_BASE}/auth/me`, {
+        let res = await fetch(`${API_BASE}/auth/me`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
         if (res.status === 401) {
-            logout();
-            return;
+            // Re-autenticar automáticamente con quick-access
+            const qres = await fetch(`${API_BASE}/auth/quick-access`, { method: "POST" });
+            const qdata = await qres.json();
+            if (qdata.access_token) {
+                token = qdata.access_token;
+                localStorage.setItem("tmh_token", token);
+                res = await fetch(`${API_BASE}/auth/me`, {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+            } else {
+                logout();
+                return;
+            }
         }
         if (!res.ok) {
             console.warn("Error del servidor al validar sesión:", res.status);

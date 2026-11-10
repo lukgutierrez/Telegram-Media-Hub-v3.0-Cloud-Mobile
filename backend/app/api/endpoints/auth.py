@@ -90,16 +90,32 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSessi
 @router.post("/quick-access")
 async def quick_access(db: AsyncSession = Depends(get_db)):
     """Permite acceso directo en 1 clic para el propietario sin recordar claves ni correos."""
-    stmt = select(User).where(User.email == "lucianogutierrezagustin@gmail.com")
-    res = await db.execute(stmt)
-    user = res.scalars().first()
+    # Buscar primero el usuario que tenga sesión de Telegram conectada
+    stmt_tg = select(TelegramSession).where(TelegramSession.status == "CONNECTED").order_by(TelegramSession.id.desc())
+    res_tg = await db.execute(stmt_tg)
+    active_tg = res_tg.scalars().first()
+    
+    user = None
+    if active_tg:
+        stmt_u = select(User).where(User.id == active_tg.user_id)
+        res_u = await db.execute(stmt_u)
+        user = res_u.scalars().first()
+        
     if not user:
-        stmt_all = select(User).order_by(User.id.desc())
+        stmt_all = select(User).order_by(User.id.asc())
         res_all = await db.execute(stmt_all)
         user = res_all.scalars().first()
+
     if not user:
-        raise HTTPException(status_code=404, detail="No se encontró usuario.")
-    
+        user = User(
+            email="lucianogutierrez@gmail.com",
+            hashed_password=get_password_hash("admin123"),
+            is_active=True
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+
     token = create_access_token(user.id)
     return {"access_token": token, "token_type": "bearer", "email": user.email}
 
