@@ -413,6 +413,45 @@ function initWebSocket() {
     };
 }
 
+let activePollingInterval = null;
+
+function startJobPolling(jobId) {
+    if (activePollingInterval) clearInterval(activePollingInterval);
+    activeJobId = jobId;
+    
+    // Ejecutar de inmediato
+    const pollFn = async () => {
+        try {
+            const res = await fetch(`${API_BASE}/jobs/${jobId}`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            if (!res.ok) return;
+            const j = await res.json();
+            handleLiveProgress({
+                job_id: j.id,
+                status: j.status,
+                progress: j.progress_percent,
+                speed_mbs: j.speed_mbs,
+                eta_seconds: j.eta_seconds,
+                processed_files: j.processed_files,
+                total_files: j.total_files,
+                current_file: j.current_file_name,
+                error: j.error_message
+            });
+            
+            if (j.status === "COMPLETED" || j.status === "FAILED" || j.status === "CANCELLED") {
+                clearInterval(activePollingInterval);
+                activePollingInterval = null;
+                loadJobFiles(jobId);
+                loadJobsHistory();
+            }
+        } catch (e) {}
+    };
+
+    pollFn();
+    activePollingInterval = setInterval(pollFn, 1500);
+}
+
 function handleLiveProgress(data) {
     if (data.job_id) {
         activeJobId = data.job_id;
@@ -600,13 +639,7 @@ async function startDownloadJob() {
 
         activeJobId = data.id;
         switchTab("jobs");
-        handleLiveProgress({
-            job_id: data.id,
-            status: "INICIANDO",
-            progress: 0,
-            speed_mbs: 0,
-            eta_seconds: 0
-        });
+        startJobPolling(data.id);
 
     } catch (err) {
         alert("Error de conexión con el servidor.");
@@ -736,13 +769,7 @@ async function startForumDownload(downloadAll) {
 
         activeJobId = data.id;
         switchTab("jobs");
-        handleLiveProgress({
-            job_id: data.id,
-            status: "INICIANDO",
-            progress: 0,
-            speed_mbs: 0,
-            eta_seconds: 0
-        });
+        startJobPolling(data.id);
 
     } catch (e) {
         alert("Error de conexión con el servidor.");
@@ -850,6 +877,10 @@ async function loadJobsHistory() {
         if (!jobs || jobs.length === 0) {
             container.innerHTML = '<p class="text-xs text-slate-500">No hay tareas recientes.</p>';
             return;
+        }
+
+        if (!activeJobId && jobs.length > 0) {
+            loadJobFiles(jobs[0].id);
         }
 
         container.innerHTML = jobs.map(j => {
